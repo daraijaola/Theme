@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mirror Ball — Study No.3</title>
+<style>
+/* ==========================================================
+   MIRROR BALL — STUDY No.3
+   Fixes applied from two research passes:
+
+   SCENE PHYSICS
+   · visible pinspot light source (45°) with volumetric cone
+   · beams radiating from the ball through hazy air
+   · wall spots ORBITING in arcs (not straight lines)
+   · film grain (SVG turbulence, steps(), soft-light)
+   · halation: warm bloom around every hot highlight
+   · vignette + warm color grade
+
+   MOTION CRAFT
+   · follow-through: rig sways, ball lags behind cable
+   · easing on airborne things (dust flutters, arcs)
+   · offset clocks: no two layers share a duration
+   · secondary action: haze churn, cone flicker, shimmer
+   · weight: glints bloom in / decay out, never snap
+
+   Self-contained. No libraries. Offline.
+   ========================================================== */
+
+:root{
+  --room:#140B10;
+  --amber:#FFB347;
+  --hal:#FF6B4A;          /* halation warm red-orange */
+  --gold:#D4AF37;
+  --pink:#FF369B;
+  --blue:#3D6EF0;
+  --white:#FFF6E8;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--room);
+  overflow:hidden;
+  font-family:Georgia,serif;
+}
+
+/* ================= ROOM & GRADE ================= */
+.room{position:fixed;inset:0}
+.room::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 55% 42% at 26% 12%, rgba(255,179,71,.14), transparent 62%),
+    radial-gradient(ellipse 60% 55% at 80% 88%, rgba(61,30,84,.34), transparent 65%);
+}
+/* warm S-curve-ish grade + vignette, on top of everything */
+.grade{
+  position:fixed;inset:0;pointer-events:none;z-index:40;
+  background:
+    radial-gradient(ellipse 120% 105% at 50% 46%, transparent 52%, rgba(10,3,8,.62) 100%),
+    linear-gradient(180deg, rgba(255,150,80,.045), rgba(30,8,40,.06));
+  mix-blend-mode:normal;
+}
+
+/* haze: the air itself, slowly churning (secondary action) */
+.haze{
+  position:fixed;inset:-12%;pointer-events:none;z-index:3;
+  background:
+    radial-gradient(ellipse 42% 30% at 44% 38%, rgba(255,220,180,.05), transparent 70%),
+    radial-gradient(ellipse 55% 40% at 58% 55%, rgba(190,160,255,.04), transparent 70%);
+  animation:churn 37s ease-in-out infinite alternate;
+}
+@keyframes churn{
+  from{transform:translate(-1.5%,-1%) scale(1)}
+  to  {transform:translate(1.5%,1.4%) scale(1.05)}
+}
+
+/* ================= PINSPOT (the light source) ============
+   visible lamp upper-left + volumetric cone hitting the ball
+   at ~45°, with a live flicker (secondary action) */
+.lamp{
+  position:fixed;
+  top:4vh;left:6vw;
+  width:20px;height:14px;border-radius:4px;
+  background:linear-gradient(180deg,#565660,#23232c);
+  z-index:6;
+}
+.lamp::after{ /* the glowing lens, with halation ring */
+  content:"";position:absolute;
+  right:-7px;top:3px;width:9px;height:9px;border-radius:50%;
+  background:var(--white);
+  box-shadow:
+    0 0 10px 3px rgba(255,246,232,.95),
+    0 0 26px 10px rgba(255,107,74,.5),   /* halation */
+    0 0 60px 24px rgba(255,179,71,.28);
+  animation:lensflick 4.7s ease-in-out infinite;
+}
+@keyframes lensflick{
+  0%,100%{filter:brightness(1)}
+  23%{filter:brightness(1.18)}
+  61%{filter:brightness(.92)}
+}
+.cone{
+  position:fixed;
+  top:5vh;left:7vw;
+  width:min(72vw,760px);height:min(72vw,760px);
+  z-index:4;pointer-events:none;
+  transform-origin:top left;
+  transform:rotate(9deg);
+  background:conic-gradient(from 34deg at 0% 0%,
+    transparent 0deg,
+    rgba(255,236,210,.14) 6deg,
+    rgba(255,220,180,.07) 13deg,
+    transparent 22deg);
+  filter:blur(3px);
+  animation:coneflick 6.3s ease-in-out infinite;
+  mix-blend-mode:screen;
+}
+@keyframes coneflick{
+  0%,100%{opacity:.9}
+  37%{opacity:1}
+  71%{opacity:.78}
+}
+
+/* ================= RIG with FOLLOW-THROUGH ================
+   .sway = whole pendulum (cable+ball) drifting gently.
+   .lag  = ball wobbles a beat BEHIND the cable (offset phase)
+   so the system doesn't move as one rigid unit. */
+.scene{
+  position:fixed;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  z-index:5;
+}
+.sway{
+  display:flex;flex-direction:column;align-items:center;
+  transform-origin:top center;
+  animation:sway 12.4s ease-in-out infinite;
+}
+@keyframes sway{
+  0%,100%{transform:rotate(-1.1deg)}
+  50%{transform:rotate(1.1deg)}
+}
+.cable{
+  width:2px;height:clamp(46px,10vh,105px);
+  background:linear-gradient(to bottom,transparent,rgba(255,246,232,.45));
+}
+.mount{
+  width:14px;height:8px;border-radius:3px 3px 0 0;
+  background:linear-gradient(180deg,#8a8a96,#3c3c46);
+}
+.lag{
+  transform-origin:top center;
+  animation:lag 12.4s ease-in-out -1.3s infinite; /* phase offset = follow-through */
+}
+@keyframes lag{
+  0%,100%{transform:rotate(.55deg)}
+  50%{transform:rotate(-.55deg)}
+}
+
+/* ================= THE SPHERE ================= */
+.stage{
+  --D:min(60vw,330px);
+  width:var(--D);height:var(--D);
+  perspective:1200px;
+  position:relative;
+}
+.ball{
+  position:relative;width:100%;height:100%;
+  transform-style:preserve-3d;
+  animation:spin 29s linear infinite; /* motor = linear, correct */
+}
+@keyframes spin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+
+.tile{
+  position:absolute;top:50%;left:50%;
+  backface-visibility:hidden;
+  background:linear-gradient(135deg,
+    rgba(255,255,255,.9) 0%,
+    rgba(205,210,224,.55) 35%,
+    rgba(124,130,155,.4) 65%,
+    rgba(58,62,84,.5) 100%);
+  box-shadow:inset 0 0 1px rgba(255,255,255,.6);
+}
+/* glints now BLOOM in and DECAY out (weight), with halation */
+.tile.glint{animation:flare 29s linear infinite;animation-delay:var(--gd,0s)}
+@keyframes flare{
+  0%,9%,100%{filter:brightness(1)}
+  2.2%{filter:brightness(1.7)}                         /* attack */
+  4%  {filter:brightness(3.6) saturate(0);             /* peak + halation bloom */
+       box-shadow:
+         0 0 14px 4px rgba(255,246,232,.95),
+         0 0 34px 12px rgba(255,107,74,.45),
+         0 0 60px 22px rgba(255,179,71,.22)}
+  7.5%{filter:brightness(1.4)}                         /* decay, slower than attack */
+}
+.core{
+  position:absolute;inset:4%;border-radius:50%;
+  background:radial-gradient(circle at 33% 28%, #2c3040, #0b0c14 70%);
+}
+.sheen{
+  position:absolute;inset:0;border-radius:50%;
+  pointer-events:none;z-index:3;
+  background:
+    radial-gradient(circle at 30% 22%, rgba(255,246,232,.6) 0%, rgba(255,190,140,.22) 16%, transparent 40%),
+    radial-gradient(circle at 30% 22%, rgba(255,107,74,.18) 18%, transparent 52%), /* halation ring */
+    radial-gradient(circle at 72% 80%, rgba(61,30,84,.4) 0%, transparent 45%);
+  mix-blend-mode:screen;
+}
+
+/* ================= BEAMS FROM THE BALL ================
+   radiating shafts sweeping the air; rotate on their own
+   clock (offset from ball) so layers never sync */
+.beamwheel{
+  position:absolute;inset:-55%;
+  pointer-events:none;z-index:-1;
+  background:repeating-conic-gradient(from 0deg,
+    transparent 0deg 9deg,
+    rgba(255,240,220,.05) 9deg 11.5deg,
+    rgba(255,179,71,.03) 11.5deg 13deg,
+    transparent 13deg 24deg);
+  border-radius:50%;
+  filter:blur(2px);
+  mix-blend-mode:screen;
+  animation:wheel 47s linear infinite;
+  -webkit-mask-image:radial-gradient(circle, transparent 26%, #000 34%, transparent 72%);
+          mask-image:radial-gradient(circle, transparent 26%, #000 34%, transparent 72%);
+}
+@keyframes wheel{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+/* ================= ORBITING WALL SPOTS ================
+   true arcs: each spot rides a tilted orbit ring centered
+   on the ball. injected by JS with varied radii/speeds/tilts */
+.orbits{
+  position:absolute;inset:0;
+  transform-style:preserve-3d;
+  pointer-events:none;
+  z-index:-2;
+}
+.orbit{
+  position:absolute;top:50%;left:50%;
+  transform-style:preserve-3d;
+  animation:orbitspin var(--os,31s) linear infinite;
+  animation-delay:var(--od,0s);
+}
+@keyframes orbitspin{
+  from{transform:rotateX(var(--tilt,75deg)) rotateZ(0)}
+  to  {transform:rotateX(var(--tilt,75deg)) rotateZ(360deg)}
+}
+.orbspot{
+  position:absolute;
+  width:var(--sw,13px);height:var(--sh,10px);
+  border-radius:2px;
+  background:var(--c,var(--white));
+  filter:blur(1.6px);
+  mix-blend-mode:screen;
+  transform:translateX(var(--r,300px)) rotateX(calc(var(--tilt,75deg) * -1));
+  animation:spotfade var(--os,31s) linear infinite;
+  animation-delay:var(--od,0s);
+  box-shadow:0 0 8px 2px rgba(255,120,80,.25); /* halation on spots */
+}
+@keyframes spotfade{
+  0%,100%{opacity:.0}
+  12%{opacity:var(--o,.5)}
+  46%{opacity:var(--o,.5)}
+  58%{opacity:.06}         /* passes "behind" the room */
+}
+
+/* ================= DUST with flutter (arcs + easing) ====
+   two nested animations on different clocks & easings:
+   fall (mostly linear w/ slight ease) + horizontal sway
+   (ease-in-out) = curved, fluttering paths */
+.dust{position:fixed;inset:0;pointer-events:none;z-index:7;overflow:hidden}
+.mfall{
+  position:absolute;top:-3vh;
+  animation:fall var(--ft,16s) cubic-bezier(.4,.1,.7,.9) infinite;
+  animation-delay:var(--fd,0s);
+}
+.mote{
+  width:3px;height:3px;border-radius:50%;
+  background:var(--white);
+  opacity:0;
+  animation:
+    sway2 var(--st,5.2s) ease-in-out infinite alternate,
+    twinkle var(--tt,3.1s) ease-in-out infinite;
+  animation-delay:var(--fd,0s);
+  box-shadow:0 0 5px 1px rgba(255,200,150,.35);
+}
+@keyframes fall{
+  0%{transform:translateY(-2vh)}
+  100%{transform:translateY(106vh)}
+}
+@keyframes sway2{
+  from{transform:translateX(calc(var(--amp,18px) * -1))}
+  to  {transform:translateX(var(--amp,18px))}
+}
+@keyframes twinkle{
+  0%,100%{opacity:.12}
+  50%{opacity:.6}
+}
+
+/* ================= FILM GRAIN =================
+   inline SVG turbulence, jumping via steps(), soft-light */
+.grain{
+  position:fixed;inset:-60%;
+  z-index:50;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode:soft-light;
+  opacity:.55;
+  animation:grainjump .9s steps(8) infinite;
+}
+@keyframes grainjump{
+  0%{transform:translate(0,0)}
+  25%{transform:translate(-3%,2%)}
+  50%{transform:translate(2%,-3%)}
+  75%{transform:translate(-1%,-2%)}
+  100%{transform:translate(3%,1%)}
+}
+
+.caption{
+  position:fixed;bottom:3.6vh;left:0;right:0;
+  text-align:center;z-index:41;
+  color:rgba(255,246,232,.42);
+  font-style:italic;font-size:.85rem;letter-spacing:.12em;
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+  }
+  .grain{opacity:.3}
+}
+</style>
+</head>
+<body>
+
+<div class="room" aria-hidden="true"></div>
+<div class="haze" aria-hidden="true"></div>
+
+<div class="lamp" aria-hidden="true"></div>
+<div class="cone" aria-hidden="true"></div>
+
+<main class="scene">
+  <div class="sway">
+    <div class="cable"></div>
+    <div class="mount"></div>
+    <div class="lag">
+      <div class="stage">
+        <div class="orbits" id="orbits"></div>
+        <div class="beamwheel"></div>
+        <div class="ball" id="ball"><div class="core"></div></div>
+        <div class="sheen"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="dust" id="dust" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div class="grade" aria-hidden="true"></div>
+
+<p class="caption">Study No.3 — the ball, the light, the air, and the lens.</p>
+
+<script>
+(function(){
+  /* ---------- sphere of tiles (as study 2, kept) ---------- */
+  const ball=document.getElementById('ball');
+  const stage=document.querySelector('.stage');
+  const D=stage.getBoundingClientRect().width, R=D/2;
+  const BANDS=14, period=29;
+  const light={x:-0.55,y:-0.6,z:0.58};
+  const frag=document.createDocumentFragment();
+
+  for(let b=0;b<BANDS;b++){
+    const lat=(-80+(160*(b+0.5)/BANDS))*Math.PI/180;
+    const bandR=Math.cos(lat)*R, circ=2*Math.PI*bandR;
+    const tileH=(Math.PI*R)/BANDS*0.82;
+    const n=Math.max(6,Math.round(circ/(tileH*1.1)));
+    const tileW=(circ/n)*0.82;
+    for(let i=0;i<n;i++){
+      const lon=2*Math.PI*i/n;
+      const t=document.createElement('div');
+      t.className='tile';
+      const nx=Math.cos(lat)*Math.sin(lon),
+            ny=Math.sin(lat),
+            nz=Math.cos(lat)*Math.cos(lon);
+      let s=nx*light.x+ny*light.y+nz*light.z;
+      s=Math.max(.18,Math.min(1,.55+s*.6));
+      t.style.cssText=
+        `width:${tileW}px;height:${tileH}px;`+
+        `margin-left:${-tileW/2}px;margin-top:${-tileH/2}px;`+
+        `transform:rotateY(${lon}rad) rotateX(${-lat}rad) translateZ(${R*0.97}px);`+
+        `filter:brightness(${s.toFixed(2)})`;
+      if(Math.random()<0.07){
+        t.classList.add('glint');
+        t.style.setProperty('--gd',(-(lon/(2*Math.PI))*period).toFixed(2)+'s');
+      }
+      frag.appendChild(t);
+    }
+  }
+  ball.appendChild(frag);
+
+  /* ---------- orbiting wall spots (arcs, offset clocks) --- */
+  const orbits=document.getElementById('orbits');
+  const N=26;
+  const palette=['var(--white)','var(--white)','var(--white)',
+                 'var(--pink)','var(--blue)','var(--amber)'];
+  for(let i=0;i<N;i++){
+    const o=document.createElement('div');
+    o.className='orbit';
+    const spot=document.createElement('div');
+    spot.className='orbspot';
+    /* every orbit gets its own radius, speed, tilt, size, delay:
+       no two share a clock */
+    const r=R*1.5+Math.random()*R*3.4;
+    const speed=(24+Math.random()*26).toFixed(1)+'s';
+    const tilt=(62+Math.random()*26).toFixed(1)+'deg';
+    const delay=(-Math.random()*40).toFixed(1)+'s';
+    const sc=.6+Math.random()*1.1;
+    o.style.setProperty('--os',speed);
+    o.style.setProperty('--od',delay);
+    o.style.setProperty('--tilt',tilt);
+    spot.style.setProperty('--os',speed);
+    spot.style.setProperty('--od',delay);
+    spot.style.setProperty('--tilt',tilt);
+    spot.style.setProperty('--r',r+'px');
+    spot.style.setProperty('--sw',(13*sc)+'px');
+    spot.style.setProperty('--sh',(10*sc)+'px');
+    spot.style.setProperty('--o',(0.22+Math.random()*0.4).toFixed(2));
+    spot.style.setProperty('--c',palette[Math.floor(Math.random()*palette.length)]);
+    o.appendChild(spot);
+    orbits.appendChild(o);
+  }
+
+  /* ---------- fluttering dust (nested clocks) ------------- */
+  const dust=document.getElementById('dust');
+  for(let i=0;i<24;i++){
+    const wrap=document.createElement('div');
+    wrap.className='mfall';
+    wrap.style.left=(Math.random()*100)+'vw';
+    wrap.style.setProperty('--ft',(12+Math.random()*11)+'s');
+    wrap.style.setProperty('--fd',(-Math.random()*20)+'s');
+    const m=document.createElement('div');
+    m.className='mote';
+    m.style.setProperty('--st',(3.4+Math.random()*3.8)+'s');
+    m.style.setProperty('--tt',(2.2+Math.random()*2.6)+'s');
+    m.style.setProperty('--amp',(8+Math.random()*26)+'px');
+    m.style.setProperty('--fd',(-Math.random()*20)+'s');
+    wrap.appendChild(m);
+    dust.appendChild(wrap);
+  }
+})();
+</script>
+</body>
+</html>

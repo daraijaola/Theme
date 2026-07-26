@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mirror Ball — Study No.4</title>
+<style>
+/* ==========================================================
+   MIRROR BALL — STUDY No.4  (the realism pass)
+   Everything from No.3, plus the CGI-realism checklist:
+
+   · GROUNDING — floor light-pool + reflection anchors the
+     ball to the room; contact AO where cable meets mount
+   · BOUNCE LIGHT / COLOR BLEED — tile colors are computed
+     from THREE lights: warm key, violet room ambience,
+     faint warm floor bounce. Dark side is violet, not black.
+   · AMBIENT OCCLUSION — shadow trapped in tile seams,
+     pole crevices, and the mount contact
+   · LIGHT FALLOFF — far orbit spots are dimmer + softer
+     (inverse-square-ish), near ones brighter + sharper
+   · FRESNEL — bright rim along the sphere's silhouette
+   · IMPERFECTION — dead tiles, missing tiles, per-tile
+     brightness jitter; uniformity killed
+   · DEPTH OF FIELD — far spots defocused, big blurred
+     foreground bokeh motes; one plane in focus
+   · CHROMATIC ABERRATION — faint red/blue fringe on the
+     hottest flares only
+
+   Self-contained. No libraries. Offline.
+   ========================================================== */
+
+:root{
+  --room:#140B10;
+  --amber:#FFB347;
+  --hal:#FF6B4A;
+  --violet:#6B4A9E;
+  --pink:#FF369B;
+  --blue:#3D6EF0;
+  --white:#FFF6E8;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--room);overflow:hidden;font-family:Georgia,serif}
+
+/* ================= ROOM ================= */
+.room{position:fixed;inset:0}
+.room::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 55% 42% at 26% 12%, rgba(255,179,71,.14), transparent 62%),
+    radial-gradient(ellipse 60% 55% at 80% 88%, rgba(75,40,110,.36), transparent 65%),
+    /* the ball's own scattered light faintly tinting the air around it (bleed) */
+    radial-gradient(circle at 50% 46%, rgba(220,215,255,.05), transparent 38%);
+}
+
+/* GROUNDING: floor pool + soft ball reflection */
+.floorpool{
+  position:fixed;
+  left:50%;bottom:0;
+  width:min(120vw,900px);height:24vh;
+  transform:translateX(-50%);
+  pointer-events:none;z-index:2;
+  background:
+    radial-gradient(ellipse 46% 60% at 50% 100%, rgba(255,214,160,.10), transparent 70%),
+    radial-gradient(ellipse 22% 34% at 50% 100%, rgba(255,246,232,.07), transparent 75%);
+}
+.floorpool::after{ /* blurred upside-down ghost of the ball */
+  content:"";
+  position:absolute;
+  left:50%;bottom:2vh;
+  width:min(34vw,190px);height:7vh;
+  transform:translateX(-50%);
+  border-radius:50%;
+  background:radial-gradient(ellipse at 50% 40%,
+    rgba(210,214,235,.10), rgba(150,150,190,.05) 55%, transparent 75%);
+  filter:blur(9px);
+}
+
+.grade{
+  position:fixed;inset:0;pointer-events:none;z-index:40;
+  background:
+    radial-gradient(ellipse 120% 105% at 50% 46%, transparent 52%, rgba(10,3,8,.62) 100%),
+    linear-gradient(180deg, rgba(255,150,80,.045), rgba(30,8,40,.06));
+}
+
+.haze{
+  position:fixed;inset:-12%;pointer-events:none;z-index:3;
+  background:
+    radial-gradient(ellipse 42% 30% at 44% 38%, rgba(255,220,180,.05), transparent 70%),
+    radial-gradient(ellipse 55% 40% at 58% 55%, rgba(190,160,255,.045), transparent 70%);
+  animation:churn 37s ease-in-out infinite alternate;
+}
+@keyframes churn{
+  from{transform:translate(-1.5%,-1%) scale(1)}
+  to{transform:translate(1.5%,1.4%) scale(1.05)}
+}
+
+/* ================= PINSPOT ================= */
+.lamp{
+  position:fixed;top:4vh;left:6vw;
+  width:20px;height:14px;border-radius:4px;
+  background:linear-gradient(180deg,#565660,#23232c);
+  z-index:6;
+}
+.lamp::after{
+  content:"";position:absolute;right:-7px;top:3px;
+  width:9px;height:9px;border-radius:50%;
+  background:var(--white);
+  box-shadow:
+    0 0 10px 3px rgba(255,246,232,.95),
+    0 0 26px 10px rgba(255,107,74,.5),
+    0 0 60px 24px rgba(255,179,71,.28);
+  animation:lensflick 4.7s ease-in-out infinite;
+}
+@keyframes lensflick{
+  0%,100%{filter:brightness(1)}
+  23%{filter:brightness(1.18)}
+  61%{filter:brightness(.92)}
+}
+.cone{
+  position:fixed;top:5vh;left:7vw;
+  width:min(72vw,760px);height:min(72vw,760px);
+  z-index:4;pointer-events:none;
+  transform-origin:top left;transform:rotate(9deg);
+  background:conic-gradient(from 34deg at 0% 0%,
+    transparent 0deg,
+    rgba(255,236,210,.14) 6deg,
+    rgba(255,220,180,.07) 13deg,
+    transparent 22deg);
+  filter:blur(3px);
+  animation:coneflick 6.3s ease-in-out infinite;
+  mix-blend-mode:screen;
+}
+@keyframes coneflick{
+  0%,100%{opacity:.9}37%{opacity:1}71%{opacity:.78}
+}
+
+/* ================= RIG ================= */
+.scene{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:5}
+.sway{
+  display:flex;flex-direction:column;align-items:center;
+  transform-origin:top center;
+  animation:sway 12.4s ease-in-out infinite;
+}
+@keyframes sway{0%,100%{transform:rotate(-1.1deg)}50%{transform:rotate(1.1deg)}}
+.cable{
+  width:2px;height:clamp(46px,10vh,105px);
+  background:linear-gradient(to bottom,transparent,rgba(255,246,232,.45));
+}
+.mount{
+  width:14px;height:8px;border-radius:3px 3px 0 0;
+  background:linear-gradient(180deg,#8a8a96,#3c3c46);
+  position:relative;
+}
+/* contact AO where mount meets sphere */
+.mount::after{
+  content:"";position:absolute;
+  left:50%;bottom:-5px;transform:translateX(-50%);
+  width:26px;height:8px;border-radius:50%;
+  background:radial-gradient(ellipse, rgba(0,0,8,.55), transparent 70%);
+}
+.lag{
+  transform-origin:top center;
+  animation:lag 12.4s ease-in-out -1.3s infinite;
+}
+@keyframes lag{0%,100%{transform:rotate(.55deg)}50%{transform:rotate(-.55deg)}}
+
+/* ================= SPHERE ================= */
+.stage{--D:min(60vw,330px);width:var(--D);height:var(--D);perspective:1200px;position:relative}
+.ball{
+  position:relative;width:100%;height:100%;
+  transform-style:preserve-3d;
+  animation:spin 29s linear infinite;
+}
+@keyframes spin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+
+.tile{
+  position:absolute;top:50%;left:50%;
+  backface-visibility:hidden;
+  /* AO: every seam traps a little darkness */
+  box-shadow:inset 0 0 2px rgba(4,4,14,.55), inset 0 0 1px rgba(255,255,255,.35);
+}
+.tile.glint{animation:flare 29s linear infinite;animation-delay:var(--gd,0s)}
+@keyframes flare{
+  0%,9%,100%{filter:brightness(1)}
+  2.2%{filter:brightness(1.7)}
+  4%{filter:brightness(3.6) saturate(0);
+     box-shadow:
+       0 0 14px 4px rgba(255,246,232,.95),
+       0 0 34px 12px rgba(255,107,74,.45),
+       0 0 60px 22px rgba(255,179,71,.22),
+       /* chromatic aberration: faint red/blue fringe at peak only */
+       -2px 0 6px rgba(255,40,40,.35),
+        2px 0 6px rgba(60,110,255,.35)}
+  7.5%{filter:brightness(1.4)}
+}
+/* dead tiles: imperfection */
+.tile.dead{
+  background:linear-gradient(135deg,#23242e,#101018) !important;
+  box-shadow:inset 0 0 2px rgba(0,0,0,.8);
+}
+.core{
+  position:absolute;inset:4%;border-radius:50%;
+  /* core also bleeds: violet shadow side, warm light side */
+  background:radial-gradient(circle at 33% 28%, #2e3143, #171226 60%, #0b0714 100%);
+}
+/* AO ring at the poles (crevice where tiles crowd) */
+.poleao{
+  position:absolute;left:50%;top:3%;
+  width:26%;height:7%;transform:translateX(-50%);
+  border-radius:50%;
+  background:radial-gradient(ellipse, rgba(0,0,10,.4), transparent 70%);
+  z-index:2;filter:blur(2px);
+}
+.sheen{
+  position:absolute;inset:0;border-radius:50%;
+  pointer-events:none;z-index:3;
+  background:
+    radial-gradient(circle at 30% 22%, rgba(255,246,232,.6) 0%, rgba(255,190,140,.22) 16%, transparent 40%),
+    radial-gradient(circle at 30% 22%, rgba(255,107,74,.18) 18%, transparent 52%),
+    /* BOUNCE: violet room light kissing the shadow side */
+    radial-gradient(circle at 74% 78%, rgba(120,80,190,.28) 0%, transparent 48%),
+    /* BOUNCE: faint warm floor light under the chin */
+    radial-gradient(circle at 50% 96%, rgba(255,180,110,.12) 0%, transparent 30%);
+  mix-blend-mode:screen;
+}
+/* FRESNEL rim: silhouette catches light at grazing angles */
+.rim{
+  position:absolute;inset:-1%;border-radius:50%;
+  pointer-events:none;z-index:4;
+  background:radial-gradient(circle,
+    transparent 58%,
+    transparent 66%,
+    rgba(235,230,255,.16) 71%,
+    rgba(255,246,232,.30) 74%,
+    transparent 78%);
+  mix-blend-mode:screen;
+  /* stronger toward the key light */
+  -webkit-mask-image:linear-gradient(135deg,#000 30%,rgba(0,0,0,.25) 75%);
+          mask-image:linear-gradient(135deg,#000 30%,rgba(0,0,0,.25) 75%);
+}
+
+/* ================= BEAMS ================= */
+.beamwheel{
+  position:absolute;inset:-55%;
+  pointer-events:none;z-index:-1;border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,
+    transparent 0deg 9deg,
+    rgba(255,240,220,.05) 9deg 11.5deg,
+    rgba(255,179,71,.03) 11.5deg 13deg,
+    transparent 13deg 24deg);
+  filter:blur(2px);mix-blend-mode:screen;
+  animation:wheel 47s linear infinite;
+  -webkit-mask-image:radial-gradient(circle, transparent 26%, #000 34%, transparent 72%);
+          mask-image:radial-gradient(circle, transparent 26%, #000 34%, transparent 72%);
+}
+@keyframes wheel{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+/* ================= ORBIT SPOTS (falloff + DOF via JS) ==== */
+.orbits{position:absolute;inset:0;transform-style:preserve-3d;pointer-events:none;z-index:-2}
+.orbit{
+  position:absolute;top:50%;left:50%;
+  transform-style:preserve-3d;
+  animation:orbitspin var(--os,31s) linear infinite;
+  animation-delay:var(--od,0s);
+}
+@keyframes orbitspin{
+  from{transform:rotateX(var(--tilt,75deg)) rotateZ(0)}
+  to{transform:rotateX(var(--tilt,75deg)) rotateZ(360deg)}
+}
+.orbspot{
+  position:absolute;
+  width:var(--sw,13px);height:var(--sh,10px);
+  border-radius:2px;
+  background:var(--c,var(--white));
+  filter:blur(var(--bl,1.6px));           /* DOF: set per-spot */
+  mix-blend-mode:screen;
+  transform:translateX(var(--r,300px)) rotateX(calc(var(--tilt,75deg) * -1));
+  animation:spotfade var(--os,31s) linear infinite;
+  animation-delay:var(--od,0s);
+  box-shadow:0 0 8px 2px rgba(255,120,80,.22);
+}
+@keyframes spotfade{
+  0%,100%{opacity:0}
+  12%{opacity:var(--o,.5)}
+  46%{opacity:var(--o,.5)}
+  58%{opacity:.05}
+}
+
+/* ================= DUST + FOREGROUND BOKEH ============= */
+.dust{position:fixed;inset:0;pointer-events:none;z-index:7;overflow:hidden}
+.mfall{
+  position:absolute;top:-3vh;
+  animation:fall var(--ft,16s) cubic-bezier(.4,.1,.7,.9) infinite;
+  animation-delay:var(--fd,0s);
+}
+.mote{
+  width:var(--ms,3px);height:var(--ms,3px);border-radius:50%;
+  background:var(--white);opacity:0;
+  filter:blur(var(--mb,0px));            /* DOF: foreground motes blurred */
+  animation:
+    sway2 var(--st,5.2s) ease-in-out infinite alternate,
+    twinkle var(--tt,3.1s) ease-in-out infinite;
+  animation-delay:var(--fd,0s);
+  box-shadow:0 0 5px 1px rgba(255,200,150,.3);
+}
+@keyframes fall{0%{transform:translateY(-2vh)}100%{transform:translateY(106vh)}}
+@keyframes sway2{
+  from{transform:translateX(calc(var(--amp,18px) * -1))}
+  to{transform:translateX(var(--amp,18px))}
+}
+@keyframes twinkle{0%,100%{opacity:.1}50%{opacity:var(--mo,.55)}}
+
+/* ================= GRAIN ================= */
+.grain{
+  position:fixed;inset:-60%;z-index:50;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode:soft-light;opacity:.55;
+  animation:grainjump .9s steps(8) infinite;
+}
+@keyframes grainjump{
+  0%{transform:translate(0,0)}
+  25%{transform:translate(-3%,2%)}
+  50%{transform:translate(2%,-3%)}
+  75%{transform:translate(-1%,-2%)}
+  100%{transform:translate(3%,1%)}
+}
+
+.caption{
+  position:fixed;bottom:3.6vh;left:0;right:0;text-align:center;z-index:41;
+  color:rgba(255,246,232,.42);font-style:italic;font-size:.85rem;letter-spacing:.12em;
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important}
+  .grain{opacity:.3}
+}
+</style>
+</head>
+<body>
+
+<div class="room" aria-hidden="true"></div>
+<div class="floorpool" aria-hidden="true"></div>
+<div class="haze" aria-hidden="true"></div>
+
+<div class="lamp" aria-hidden="true"></div>
+<div class="cone" aria-hidden="true"></div>
+
+<main class="scene">
+  <div class="sway">
+    <div class="cable"></div>
+    <div class="mount"></div>
+    <div class="lag">
+      <div class="stage">
+        <div class="orbits" id="orbits"></div>
+        <div class="beamwheel"></div>
+        <div class="ball" id="ball"><div class="core"></div></div>
+        <div class="poleao"></div>
+        <div class="sheen"></div>
+        <div class="rim"></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="dust" id="dust" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div class="grade" aria-hidden="true"></div>
+
+<p class="caption">Study No.4 — the ball, in a room, under a law of light, seen by a lens.</p>
+
+<script>
+(function(){
+  /* ============ SPHERE with THREE-LIGHT COLOR BLEED ========
+     key light (warm, upper-left), room ambience (violet,
+     lower-right), floor bounce (faint warm, from below).
+     Each tile's two gradient stops are mixed from all three
+     — so the shadow side is violet, never dead black. */
+  const ball=document.getElementById('ball');
+  const stage=document.querySelector('.stage');
+  const D=stage.getBoundingClientRect().width, R=D/2;
+  const BANDS=14, period=29;
+
+  const key ={x:-0.55,y:-0.6,z:0.58, r:255,g:242,b:224, w:1.0};
+  const amb ={x:0.5, y:0.42,z:0.35, r:120,g:86, b:190, w:0.42};
+  const flo ={x:0,   y:1,   z:0.2,  r:255,g:180,b:120, w:0.16};
+
+  function shade(nx,ny,nz){
+    let r=14,g=14,b=22; /* unlit base */
+    [key,amb,flo].forEach(L=>{
+      const d=Math.max(0,nx*L.x+ny*L.y+nz*L.z)*L.w;
+      r+=L.r*d; g+=L.g*d; b+=L.b*d;
+    });
+    return [Math.min(255,r),Math.min(255,g),Math.min(255,b)];
+  }
+
+  const frag=document.createDocumentFragment();
+  for(let b=0;b<BANDS;b++){
+    const lat=(-80+(160*(b+0.5)/BANDS))*Math.PI/180;
+    const bandR=Math.cos(lat)*R, circ=2*Math.PI*bandR;
+    const tileH=(Math.PI*R)/BANDS*0.82;
+    const n=Math.max(6,Math.round(circ/(tileH*1.1)));
+    const tileW=(circ/n)*0.82;
+    for(let i=0;i<n;i++){
+      /* IMPERFECTION: ~1.5% tiles missing entirely */
+      if(Math.random()<0.015) continue;
+
+      const lon=2*Math.PI*i/n;
+      const t=document.createElement('div');
+      const nx=Math.cos(lat)*Math.sin(lon),
+            ny=Math.sin(lat),
+            nz=Math.cos(lat)*Math.cos(lon);
+
+      /* IMPERFECTION: per-tile jitter in brightness & size */
+      const jit=0.86+Math.random()*0.28;
+      const [r1,g1,b1]=shade(nx,ny,nz).map(v=>Math.min(255,v*jit));
+      const [r2,g2,b2]=[r1*0.55,g1*0.55,b1*0.62]; /* lower stop cooler+darker */
+
+      t.className='tile';
+      t.style.cssText=
+        `width:${(tileW*(0.94+Math.random()*0.12)).toFixed(1)}px;`+
+        `height:${(tileH*(0.94+Math.random()*0.12)).toFixed(1)}px;`+
+        `margin-left:${-tileW/2}px;margin-top:${-tileH/2}px;`+
+        `transform:rotateY(${lon}rad) rotateX(${-lat}rad) translateZ(${R*0.97}px);`+
+        `background:linear-gradient(135deg,`+
+          `rgb(${r1|0},${g1|0},${b1|0}) 0%,`+
+          `rgb(${r2|0},${g2|0},${b2|0}) 100%)`;
+
+      /* IMPERFECTION: ~3% dead tiles (cracked mirror) */
+      if(Math.random()<0.03){
+        t.classList.add('dead');
+      }else if(Math.random()<0.07){
+        t.classList.add('glint');
+        t.style.setProperty('--gd',(-(lon/(2*Math.PI))*period).toFixed(2)+'s');
+      }
+      frag.appendChild(t);
+    }
+  }
+  ball.appendChild(frag);
+
+  /* ============ ORBIT SPOTS: falloff + depth of field ===== */
+  const orbits=document.getElementById('orbits');
+  const N=26;
+  const palette=['var(--white)','var(--white)','var(--white)',
+                 'var(--pink)','var(--blue)','var(--amber)'];
+  const rMin=R*1.5, rMax=R*4.9;
+  for(let i=0;i<N;i++){
+    const o=document.createElement('div');
+    o.className='orbit';
+    const s=document.createElement('div');
+    s.className='orbspot';
+    const r=rMin+Math.random()*(rMax-rMin);
+    const t01=(r-rMin)/(rMax-rMin);          /* 0 near … 1 far */
+    const speed=(24+Math.random()*26).toFixed(1)+'s';
+    const tilt=(62+Math.random()*26).toFixed(1)+'deg';
+    const delay=(-Math.random()*40).toFixed(1)+'s';
+
+    /* FALLOFF: brightness dies with distance (inv-square-ish) */
+    const op=(0.62*(1/(1+2.6*t01*t01))).toFixed(2);
+    /* DOF: far spots defocus + enlarge */
+    const bl=(1.2+t01*3.6).toFixed(1)+'px';
+    const sc=(0.7+t01*1.2);
+
+    o.style.setProperty('--os',speed);
+    o.style.setProperty('--od',delay);
+    o.style.setProperty('--tilt',tilt);
+    s.style.setProperty('--os',speed);
+    s.style.setProperty('--od',delay);
+    s.style.setProperty('--tilt',tilt);
+    s.style.setProperty('--r',r+'px');
+    s.style.setProperty('--sw',(13*sc)+'px');
+    s.style.setProperty('--sh',(10*sc)+'px');
+    s.style.setProperty('--o',op);
+    s.style.setProperty('--bl',bl);
+    s.style.setProperty('--c',palette[Math.floor(Math.random()*palette.length)]);
+    o.appendChild(s);
+    orbits.appendChild(o);
+  }
+
+  /* ============ DUST + foreground bokeh (DOF) ============= */
+  const dust=document.getElementById('dust');
+  for(let i=0;i<24;i++){
+    const wrap=document.createElement('div');
+    wrap.className='mfall';
+    wrap.style.left=(Math.random()*100)+'vw';
+    wrap.style.setProperty('--ft',(12+Math.random()*11)+'s');
+    wrap.style.setProperty('--fd',(-Math.random()*20)+'s');
+    const m=document.createElement('div');
+    m.className='mote';
+    m.style.setProperty('--st',(3.4+Math.random()*3.8)+'s');
+    m.style.setProperty('--tt',(2.2+Math.random()*2.6)+'s');
+    m.style.setProperty('--amp',(8+Math.random()*26)+'px');
+    m.style.setProperty('--fd',(-Math.random()*20)+'s');
+    wrap.appendChild(m);dust.appendChild(wrap);
+  }
+  /* five big out-of-focus foreground motes: instant depth */
+  for(let i=0;i<5;i++){
+    const wrap=document.createElement('div');
+    wrap.className='mfall';
+    wrap.style.left=(Math.random()*100)+'vw';
+    wrap.style.setProperty('--ft',(18+Math.random()*10)+'s');
+    wrap.style.setProperty('--fd',(-Math.random()*24)+'s');
+    const m=document.createElement('div');
+    m.className='mote';
+    m.style.setProperty('--ms',(9+Math.random()*10)+'px');
+    m.style.setProperty('--mb',(5+Math.random()*5)+'px');
+    m.style.setProperty('--mo','.3');
+    m.style.setProperty('--st',(6+Math.random()*4)+'s');
+    m.style.setProperty('--tt',(4+Math.random()*3)+'s');
+    m.style.setProperty('--amp',(20+Math.random()*40)+'px');
+    m.style.setProperty('--fd',(-Math.random()*24)+'s');
+    wrap.appendChild(m);dust.appendChild(wrap);
+  }
+})();
+</script>
+</body>
+</html>

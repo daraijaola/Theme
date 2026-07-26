@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STUDIO NOVA — Disco Never Died</title>
+<style>
+/* ============================================================
+   STUDIO NOVA — a disco landing page
+   Self-contained: no external fonts, images, or scripts.
+   Palette:
+     --void     #0B0414  (club darkness)
+     --magenta  #FF2E9A  (neon sign)
+     --gold     #F5C542  (champagne light)
+     --cyan     #2EE6D6  (laser)
+     --violet   #7B2FF7  (uv wash)
+     --cream    #FFF6E9  (spotlight white)
+   ============================================================ */
+
+:root{
+  --void:#0B0414;
+  --void-2:#160A26;
+  --magenta:#FF2E9A;
+  --gold:#F5C542;
+  --cyan:#2EE6D6;
+  --violet:#7B2FF7;
+  --cream:#FFF6E9;
+  --display:'Arial Black','Arial Bold',Arial,sans-serif;
+  --body:Georgia,'Times New Roman',serif;
+  --util:'Courier New',monospace;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+html{scroll-behavior:smooth}
+
+body{
+  background:var(--void);
+  color:var(--cream);
+  font-family:var(--body);
+  overflow-x:hidden;
+  line-height:1.6;
+}
+
+/* ---------- ambient UV wash over whole page ---------- */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% -10%, rgba(123,47,247,.25), transparent 60%),
+    radial-gradient(ellipse 70% 45% at 85% 110%, rgba(255,46,154,.18), transparent 60%);
+  pointer-events:none;
+  z-index:0;
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero{
+  position:relative;
+  min-height:100svh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-end;
+  padding:0 1.25rem 14vh;
+  text-align:center;
+  isolation:isolate;
+  overflow:hidden;
+}
+
+/* sweeping light beams behind everything */
+.beams{
+  position:absolute;
+  inset:-20%;
+  z-index:-3;
+  opacity:.5;
+}
+.beam{
+  position:absolute;
+  top:-10%;
+  left:50%;
+  width:16vmax;
+  height:130%;
+  transform-origin:top center;
+  filter:blur(6px);
+  mix-blend-mode:screen;
+}
+.beam-1{
+  background:linear-gradient(to bottom, rgba(46,230,214,.5), transparent 75%);
+  animation:sweep 11s ease-in-out infinite alternate;
+}
+.beam-2{
+  background:linear-gradient(to bottom, rgba(255,46,154,.45), transparent 75%);
+  animation:sweep 13s ease-in-out -4s infinite alternate-reverse;
+}
+.beam-3{
+  background:linear-gradient(to bottom, rgba(245,197,66,.4), transparent 75%);
+  animation:sweep 9s ease-in-out -7s infinite alternate;
+}
+@keyframes sweep{
+  from{transform:translateX(-50%) rotate(-24deg)}
+  to  {transform:translateX(-50%) rotate(24deg)}
+}
+
+/* ---------- CSS mirror ball ---------- */
+.ball-rig{
+  position:absolute;
+  top:0;
+  left:50%;
+  transform:translateX(-50%);
+  z-index:-1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.ball-cable{
+  width:2px;
+  height:clamp(40px,9vh,90px);
+  background:linear-gradient(to bottom,transparent,rgba(255,246,233,.55));
+}
+.ball{
+  --size:clamp(150px,24vw,240px);
+  width:var(--size);
+  height:var(--size);
+  border-radius:50%;
+  position:relative;
+  background:
+    /* facet grid */
+    repeating-conic-gradient(from 0deg,
+      rgba(255,255,255,.28) 0deg 6deg,
+      rgba(140,150,180,.12) 6deg 12deg),
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,.16) 0 8px,
+      rgba(20,20,40,.28) 8px 16px),
+    radial-gradient(circle at 32% 28%, #f8f6ff 0%, #b9c0d8 22%, #5a5f80 55%, #14142a 100%);
+  background-blend-mode:overlay,overlay,normal;
+  box-shadow:
+    inset -18px -24px 48px rgba(0,0,10,.75),
+    inset 12px 12px 30px rgba(255,255,255,.35),
+    0 0 60px rgba(255,246,233,.35),
+    0 0 140px rgba(123,47,247,.35);
+  animation:ballspin 14s linear infinite;
+}
+@keyframes ballspin{
+  from{filter:hue-rotate(0deg) brightness(1)}
+  50% {filter:hue-rotate(18deg) brightness(1.15)}
+  to  {filter:hue-rotate(0deg) brightness(1)}
+}
+/* sparkle glints on the ball */
+.ball i{
+  position:absolute;
+  width:7px;height:7px;
+  background:var(--cream);
+  clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);
+  animation:glint 2.6s ease-in-out infinite;
+  opacity:0;
+}
+.ball i:nth-child(1){top:18%;left:26%;animation-delay:.2s}
+.ball i:nth-child(2){top:40%;left:70%;animation-delay:1s}
+.ball i:nth-child(3){top:64%;left:38%;animation-delay:1.7s}
+.ball i:nth-child(4){top:26%;left:55%;animation-delay:2.2s}
+@keyframes glint{
+  0%,100%{opacity:0;transform:scale(.4) rotate(0)}
+  50%{opacity:1;transform:scale(1.25) rotate(45deg)}
+}
+
+/* light spots the ball throws onto the room */
+.spots{position:absolute;inset:0;z-index:-2;overflow:hidden}
+.spot{
+  position:absolute;
+  width:70px;height:44px;
+  border-radius:50%;
+  filter:blur(10px);
+  opacity:.5;
+  mix-blend-mode:screen;
+  animation:drift 16s linear infinite;
+}
+.spot:nth-child(1){background:var(--magenta);top:22%;left:8%;animation-delay:0s}
+.spot:nth-child(2){background:var(--cyan);top:35%;left:82%;animation-delay:-3s}
+.spot:nth-child(3){background:var(--gold);top:58%;left:16%;animation-delay:-6s}
+.spot:nth-child(4){background:var(--violet);top:12%;left:64%;animation-delay:-9s}
+.spot:nth-child(5){background:var(--cyan);top:70%;left:74%;animation-delay:-12s}
+.spot:nth-child(6){background:var(--magenta);top:48%;left:44%;animation-delay:-14s}
+@keyframes drift{
+  0%  {transform:translate(0,0) scale(1)}
+  25% {transform:translate(9vw,6vh) scale(1.25)}
+  50% {transform:translate(-6vw,12vh) scale(.85)}
+  75% {transform:translate(-11vw,-5vh) scale(1.15)}
+  100%{transform:translate(0,0) scale(1)}
+}
+
+/* ---------- hero type ---------- */
+.eyebrow{
+  font-family:var(--util);
+  font-size:.72rem;
+  letter-spacing:.5em;
+  text-transform:uppercase;
+  color:var(--cyan);
+  text-shadow:0 0 12px rgba(46,230,214,.8);
+  margin-bottom:1.1rem;
+}
+h1{
+  font-family:var(--display);
+  font-size:clamp(3rem,13vw,9.5rem);
+  line-height:.88;
+  letter-spacing:-.02em;
+  text-transform:uppercase;
+  /* chrome lettering */
+  background:linear-gradient(180deg,
+    #fffdf5 0%, #f5c542 28%, #b8860b 46%,
+    #fff6e9 52%, #ff2e9a 78%, #7b2ff7 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+  filter:drop-shadow(0 4px 0 rgba(123,47,247,.55)) drop-shadow(0 10px 26px rgba(255,46,154,.35));
+}
+h1 span{display:block}
+.hero-sub{
+  max-width:34ch;
+  margin:1.4rem auto 2.2rem;
+  font-size:clamp(1rem,2.4vw,1.25rem);
+  font-style:italic;
+  color:rgba(255,246,233,.82);
+}
+.cta{
+  display:inline-block;
+  font-family:var(--display);
+  font-size:clamp(.9rem,2vw,1.05rem);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--void);
+  background:linear-gradient(135deg,var(--gold),var(--magenta));
+  padding:1rem 2.6rem;
+  border-radius:999px;
+  text-decoration:none;
+  box-shadow:0 0 0 3px rgba(255,246,233,.25), 0 0 34px rgba(255,46,154,.6);
+  transition:transform .25s ease, box-shadow .25s ease;
+}
+.cta:hover,.cta:focus-visible{
+  transform:translateY(-3px) scale(1.03);
+  box-shadow:0 0 0 3px rgba(255,246,233,.5), 0 0 54px rgba(255,46,154,.9);
+}
+.cta:focus-visible{outline:3px solid var(--cyan);outline-offset:4px}
+
+/* ---------- marquee strip ---------- */
+.marquee{
+  position:relative;
+  z-index:1;
+  border-top:2px solid rgba(245,197,66,.5);
+  border-bottom:2px solid rgba(245,197,66,.5);
+  background:linear-gradient(90deg,rgba(123,47,247,.25),rgba(255,46,154,.25),rgba(123,47,247,.25));
+  overflow:hidden;
+  padding:.8rem 0;
+}
+.marquee-track{
+  display:flex;
+  gap:3rem;
+  width:max-content;
+  animation:scroll 22s linear infinite;
+  font-family:var(--display);
+  text-transform:uppercase;
+  letter-spacing:.22em;
+  font-size:.95rem;
+  color:var(--gold);
+  text-shadow:0 0 10px rgba(245,197,66,.7);
+  white-space:nowrap;
+}
+@keyframes scroll{
+  from{transform:translateX(0)}
+  to{transform:translateX(-50%)}
+}
+
+/* ============================================================
+   SECTIONS — shared
+   ============================================================ */
+section{position:relative;z-index:1;padding:clamp(4rem,10vw,7.5rem) 1.25rem}
+.wrap{max-width:1080px;margin:0 auto}
+.sec-label{
+  font-family:var(--util);
+  font-size:.7rem;
+  letter-spacing:.45em;
+  text-transform:uppercase;
+  color:var(--magenta);
+  text-shadow:0 0 10px rgba(255,46,154,.7);
+  display:block;
+  margin-bottom:.9rem;
+}
+h2{
+  font-family:var(--display);
+  font-size:clamp(1.9rem,5.5vw,3.4rem);
+  line-height:1;
+  text-transform:uppercase;
+  color:var(--cream);
+  text-shadow:0 0 24px rgba(123,47,247,.65);
+  margin-bottom:1.1rem;
+}
+.lede{max-width:52ch;color:rgba(255,246,233,.8);font-size:clamp(1rem,2.2vw,1.15rem)}
+
+/* ============================================================
+   NIGHTS — glowing dance-floor grid
+   ============================================================ */
+.floor{
+  margin-top:3rem;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:14px;
+  perspective:900px;
+}
+.tile{
+  --glow:var(--magenta);
+  position:relative;
+  border:1px solid rgba(255,246,233,.18);
+  border-radius:10px;
+  padding:1.6rem 1.4rem 1.5rem;
+  background:linear-gradient(160deg,rgba(255,246,233,.06),rgba(11,4,20,.65));
+  overflow:hidden;
+  transition:transform .3s ease, box-shadow .3s ease;
+  animation:pulse 4.8s ease-in-out infinite;
+}
+.tile:nth-child(1){--glow:var(--magenta);animation-delay:0s}
+.tile:nth-child(2){--glow:var(--cyan);animation-delay:1.2s}
+.tile:nth-child(3){--glow:var(--gold);animation-delay:2.4s}
+.tile:nth-child(4){--glow:var(--violet);animation-delay:3.6s}
+@keyframes pulse{
+  0%,100%{box-shadow:inset 0 0 0 rgba(0,0,0,0), 0 0 0 rgba(0,0,0,0)}
+  50%{box-shadow:inset 0 0 34px color-mix(in srgb,var(--glow) 30%,transparent),
+                 0 0 30px color-mix(in srgb,var(--glow) 45%,transparent)}
+}
+.tile:hover{transform:translateY(-6px) rotateX(3deg)}
+.tile-day{
+  font-family:var(--util);
+  font-size:.7rem;
+  letter-spacing:.35em;
+  text-transform:uppercase;
+  color:var(--glow);
+}
+.tile h3{
+  font-family:var(--display);
+  font-size:1.35rem;
+  text-transform:uppercase;
+  margin:.5rem 0 .6rem;
+  color:var(--cream);
+}
+.tile p{font-size:.95rem;color:rgba(255,246,233,.75)}
+.tile-bpm{
+  position:absolute;
+  right:1rem;bottom:.85rem;
+  font-family:var(--util);
+  font-size:.68rem;
+  letter-spacing:.2em;
+  color:rgba(255,246,233,.45);
+}
+
+/* ============================================================
+   HOUSE RULES — 70s numbered rail
+   ============================================================ */
+.rules{background:linear-gradient(180deg,transparent, rgba(123,47,247,.10) 30%, transparent)}
+.rule-list{margin-top:2.6rem;display:grid;gap:0}
+.rule{
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:1.4rem;
+  align-items:baseline;
+  padding:1.4rem 0;
+  border-bottom:1px dashed rgba(245,197,66,.35);
+}
+.rule:first-child{border-top:1px dashed rgba(245,197,66,.35)}
+.rule-num{
+  font-family:var(--display);
+  font-size:clamp(1.6rem,4vw,2.4rem);
+  background:linear-gradient(180deg,var(--gold),var(--magenta));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  min-width:2.2ch;
+}
+.rule h3{
+  font-family:var(--display);
+  text-transform:uppercase;
+  font-size:1.05rem;
+  letter-spacing:.06em;
+  color:var(--cream);
+  margin-bottom:.3rem;
+}
+.rule p{color:rgba(255,246,233,.72);font-size:.98rem;max-width:56ch}
+
+/* ============================================================
+   FOOTER CTA
+   ============================================================ */
+.finale{
+  text-align:center;
+  padding-bottom:6rem;
+}
+.finale h2{margin-bottom:1.6rem}
+.finale .cta{margin-top:1.2rem}
+.footnote{
+  margin-top:4rem;
+  font-family:var(--util);
+  font-size:.68rem;
+  letter-spacing:.3em;
+  text-transform:uppercase;
+  color:rgba(255,246,233,.4);
+}
+
+/* ============================================================
+   RESPONSIVE + ACCESSIBILITY
+   ============================================================ */
+@media (max-width:640px){
+  .hero{padding-bottom:10vh}
+  .rule{grid-template-columns:1fr;gap:.35rem}
+  .marquee-track{font-size:.8rem;gap:2rem}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <div class="beams" aria-hidden="true">
+    <div class="beam beam-1"></div>
+    <div class="beam beam-2"></div>
+    <div class="beam beam-3"></div>
+  </div>
+
+  <div class="spots" aria-hidden="true">
+    <div class="spot"></div><div class="spot"></div><div class="spot"></div>
+    <div class="spot"></div><div class="spot"></div><div class="spot"></div>
+  </div>
+
+  <div class="ball-rig" aria-hidden="true">
+    <div class="ball-cable"></div>
+    <div class="ball"><i></i><i></i><i></i><i></i></div>
+  </div>
+
+  <p class="eyebrow">Est. 1977 · Reopened Forever</p>
+  <h1><span>Studio</span><span>Nova</span></h1>
+  <p class="hero-sub">The mirror ball never stopped spinning. We just turned the lights back on.</p>
+  <a class="cta" href="#nights">Step on the floor</a>
+</header>
+
+<!-- ================= MARQUEE ================= -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span>★ Tonight: Boogie Wonderland ★</span>
+    <span>★ Dress Code: Shine ★</span>
+    <span>★ Four Turntables, Zero Requests Refused ★</span>
+    <span>★ Doors at Dusk ★</span>
+    <span>★ Tonight: Boogie Wonderland ★</span>
+    <span>★ Dress Code: Shine ★</span>
+    <span>★ Four Turntables, Zero Requests Refused ★</span>
+    <span>★ Doors at Dusk ★</span>
+  </div>
+</div>
+
+<!-- ================= NIGHTS ================= -->
+<section id="nights">
+  <div class="wrap">
+    <span class="sec-label">The Weekly Rotation</span>
+    <h2>Four Nights of Fever</h2>
+    <p class="lede">Every night has its own tempo, its own crowd, its own shade of light on the floor. Pick your frequency.</p>
+
+    <div class="floor">
+      <article class="tile">
+        <span class="tile-day">Thursday</span>
+        <h3>Velvet Hustle</h3>
+        <p>Slow-burn funk and Philly strings. The warm-up night where the regulars teach the footwork.</p>
+        <span class="tile-bpm">104 BPM</span>
+      </article>
+      <article class="tile">
+        <span class="tile-day">Friday</span>
+        <h3>Laser Loveline</h3>
+        <p>Italo and space disco under the cyan beams. Bring sunglasses; you will need them indoors.</p>
+        <span class="tile-bpm">118 BPM</span>
+      </article>
+      <article class="tile">
+        <span class="tile-day">Saturday</span>
+        <h3>Gold Rush</h3>
+        <p>Peak-hour classics wall to wall. The floor tiles light up and so does everybody on them.</p>
+        <span class="tile-bpm">122 BPM</span>
+      </article>
+      <article class="tile">
+        <span class="tile-day">Sunday</span>
+        <h3>Ultraviolet Slow Jam</h3>
+        <p>The comedown session. UV wash, mirrored tears, last dances that last a little too long.</p>
+        <span class="tile-bpm">96 BPM</span>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ================= HOUSE RULES ================= -->
+<section class="rules">
+  <div class="wrap">
+    <span class="sec-label">Read Before Entering</span>
+    <h2>House Rules</h2>
+
+    <div class="rule-list">
+      <div class="rule">
+        <span class="rule-num">01</span>
+        <div>
+          <h3>Everybody dances</h3>
+          <p>Standing at the edge holding a drink is permitted for exactly one song. After that, the floor claims you.</p>
+        </div>
+      </div>
+      <div class="rule">
+        <span class="rule-num">02</span>
+        <div>
+          <h3>Shine or go home</h3>
+          <p>Sequins, satin, chrome, glitter — wear something that catches the ball's light and throws it back.</p>
+        </div>
+      </div>
+      <div class="rule">
+        <span class="rule-num">03</span>
+        <div>
+          <h3>No phones on the floor</h3>
+          <p>The best nights live in your memory, not your camera roll. The mirror ball does not photograph well anyway. It has to be felt.</p>
+        </div>
+      </div>
+      <div class="rule">
+        <span class="rule-num">04</span>
+        <div>
+          <h3>The DJ is always right</h3>
+          <p>You may request. You may plead. The booth answers to the groove alone.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FINALE ================= -->
+<section class="finale">
+  <div class="wrap">
+    <span class="sec-label">Doors at Dusk</span>
+    <h2>The Night Is a Promise</h2>
+    <p class="lede" style="margin:0 auto">Somewhere between the first horn stab and the last slow spin of the ball, you'll remember why the seventies never really ended.</p>
+    <a class="cta" href="#top">Save my spot</a>
+    <p class="footnote">Studio Nova · Corner of Groove &amp; Main · Forever Open</p>
+  </div>
+</section>
+
+</body>
+</html>

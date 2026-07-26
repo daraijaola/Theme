@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aria — Weather, beautifully.</title>
+<style>
+/* ==========================================================
+   ARIA — Liquid Glass done right (rebuild after critique)
+
+   CORRECTIONS APPLIED FROM VISUAL RESEARCH:
+   · glass is a LENS, not fog: blur only 2.5px, thin 18–22%
+     white tint, near-transparent center; the work happens at
+     the EDGES — SVG displacement refraction + a bright 1–2px
+     bevel rim (inset 2px 2px 1px / inset -1px -1px 1px)
+   · background is the iOS 26 "Sky" wallpaper language: light,
+     airy blue with soft glassy ribbons — colorful and
+     high-frequency so the refraction has something to bend
+   · glass floats SMALL: the canonical iOS 26 floating pill
+     tab bar (inset 21px from bottom) + separate circular
+     search island; a few capsule chips; well under 20% of
+     the screen is glass; content never sits inside big
+     milky panels
+   · hierarchy, not template: huge 800-weight headline over
+     tiny muted sub-copy, 64px+ of air, ONE drop shadow on
+     ONE focal element (the widget), everything else elevated
+     by surface change only
+   · tab bar shrinks on scroll down, springs back on scroll up
+   Self-contained · system fonts · offline · no libraries
+   ========================================================== */
+
+:root{
+  --sky-1:#EAF4FF;      /* airy base */
+  --sky-2:#BFE0FF;      /* light azure */
+  --sky-3:#8FC6FF;      /* deeper azure */
+  --mint:#BFF4E4;
+  --peri:#C9D4FF;
+  --ink:#0B1F3F;        /* deep navy text */
+  --ink-2:rgba(11,31,63,.62);
+  --accent:#0A84FF;     /* system blue */
+  --spring:cubic-bezier(.34,1.56,.64,1);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",
+         "Segoe UI",system-ui,sans-serif;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font);
+  color:var(--ink);
+  background:var(--sky-1);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ============ iOS 26 "SKY" BACKGROUND ============
+   light airy blue field + big soft glassy ribbons drifting —
+   multiple hues, real edges, movement: a stage glass can bend */
+.sky{position:fixed;inset:0;z-index:-3;
+  background:
+    radial-gradient(90% 70% at 50% -10%, #FFFFFF 0%, transparent 55%),
+    radial-gradient(70% 60% at 15% 30%, var(--sky-2) 0%, transparent 65%),
+    radial-gradient(80% 65% at 88% 22%, var(--peri) 0%, transparent 60%),
+    radial-gradient(75% 60% at 70% 85%, var(--sky-3) 0%, transparent 62%),
+    radial-gradient(60% 50% at 10% 88%, var(--mint) 0%, transparent 60%),
+    var(--sky-1);
+}
+.ribbon{position:fixed;z-index:-2;border-radius:50%;
+  filter:blur(2px);opacity:.85;will-change:transform;
+  pointer-events:none}
+.r1{width:76vmax;height:30vmax;left:-16vmax;top:6vh;
+  background:linear-gradient(100deg,
+    rgba(255,255,255,.85), rgba(191,224,255,.5) 40%,
+    rgba(201,212,255,.25) 70%, transparent);
+  transform:rotate(-9deg)}
+.r2{width:64vmax;height:24vmax;right:-18vmax;top:44vh;
+  background:linear-gradient(80deg, transparent,
+    rgba(143,198,255,.55) 35%, rgba(255,255,255,.75) 65%,
+    rgba(191,244,228,.4));
+  transform:rotate(7deg)}
+.r3{width:58vmax;height:20vmax;left:-10vmax;bottom:-6vh;
+  background:linear-gradient(95deg,
+    rgba(191,244,228,.6), rgba(255,255,255,.7) 45%,
+    rgba(191,224,255,.35) 80%, transparent);
+  transform:rotate(-5deg)}
+/* fine cloud detail so the lens has frequency to distort */
+.detail{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background:
+    radial-gradient(14% 8% at 26% 22%, rgba(255,255,255,.9), transparent 70%),
+    radial-gradient(10% 6% at 64% 14%, rgba(255,255,255,.8), transparent 70%),
+    radial-gradient(16% 9% at 82% 58%, rgba(255,255,255,.75), transparent 70%),
+    radial-gradient(12% 7% at 14% 66%, rgba(255,255,255,.8), transparent 70%),
+    radial-gradient(18% 10% at 48% 86%, rgba(255,255,255,.7), transparent 70%);
+}
+
+/* ============ THE MATERIAL — a lens, not fog ============ */
+svg.defs{position:absolute;width:0;height:0}
+.glass{
+  position:relative;
+  background:rgba(255,255,255,.20);            /* thin tint */
+  -webkit-backdrop-filter:blur(2.5px) saturate(160%);
+          backdrop-filter:blur(2.5px) saturate(160%);
+  border:none;
+  /* the bevel rim: bright top-left, faint bottom-right —
+     this 1–2px inset highlight IS the glass */
+  box-shadow:
+    inset 2px 2px 1px rgba(255,255,255,.62),
+    inset -1px -1px 1px 1px rgba(255,255,255,.38),
+    0 6px 10px rgba(20,50,100,.14),
+    0 0 24px rgba(20,50,100,.06);
+}
+@supports (backdrop-filter: url(#lens)){
+  .glass{
+    -webkit-backdrop-filter:blur(2.5px) saturate(160%) url(#lens);
+            backdrop-filter:blur(2.5px) saturate(160%) url(#lens);
+  }
+}
+
+/* ============ THIN TOP NAV (frosted, minimal) ============ */
+.topnav{
+  position:fixed;top:0;left:0;right:0;z-index:20;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px clamp(1.2rem,5vw,3.4rem);
+  -webkit-backdrop-filter:blur(10px) saturate(170%);
+          backdrop-filter:blur(10px) saturate(170%);
+  background:rgba(234,244,255,.5);
+  border-bottom:1px solid rgba(255,255,255,.5);
+}
+.brand{font-size:17px;font-weight:700;letter-spacing:-.02em;text-decoration:none;color:var(--ink)}
+.topnav .links{display:flex;gap:1.6rem}
+.topnav .links a{
+  font-size:14px;font-weight:500;letter-spacing:-.01em;
+  color:var(--ink-2);text-decoration:none;transition:color .2s}
+.topnav .links a:hover{color:var(--ink)}
+
+/* ============ HERO — hierarchy, air, one focal ============ */
+.hero{
+  min-height:100svh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;
+  padding:96px clamp(1.2rem,6vw,4rem) 140px;   /* 64px+ pedestal air */
+  position:relative;
+}
+.eyebrow{
+  font-size:13px;font-weight:600;letter-spacing:.02em;
+  color:var(--accent);
+  margin-bottom:22px;
+}
+h1{
+  font-size:clamp(2.7rem,5vw + 1.2rem,4.9rem);
+  font-weight:800;
+  line-height:1.04;
+  letter-spacing:-.025em;
+  max-width:16ch;
+}
+h1 .soft{color:rgba(11,31,63,.42)}
+.sub{
+  margin:22px 0 34px;
+  font-size:clamp(1rem,1.6vw,1.15rem);
+  font-weight:400;line-height:1.55;letter-spacing:-.01em;
+  color:var(--ink-2);
+  max-width:42ch;
+}
+.cta{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:50px;padding:0 30px;
+  border-radius:999px;text-decoration:none;
+  font-size:16px;font-weight:600;letter-spacing:-.01em;color:#fff;
+  background:linear-gradient(180deg,#3D9BFF,var(--accent) 55%,#0668D9);
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.5),
+             inset 0 -1px 1px rgba(0,40,90,.3),
+             0 6px 18px rgba(10,132,255,.35);
+  transition:transform .32s var(--spring), box-shadow .3s ease;
+}
+.cta:hover{transform:translateY(-1px);
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.55),
+             inset 0 -1px 1px rgba(0,40,90,.3),
+             0 10px 26px rgba(10,132,255,.45)}
+.cta:active{transform:scale(.96)}
+.ghost{
+  margin-left:10px;
+  display:inline-flex;align-items:center;min-height:50px;padding:0 22px;
+  border-radius:999px;text-decoration:none;
+  font-size:16px;font-weight:600;color:var(--ink);
+  transition:transform .3s var(--spring);
+}
+.ghost:hover{transform:translateY(-1px)}
+
+/* THE focal element — a glass weather widget, the page's ONE shadow */
+.widget{
+  margin-top:58px;
+  width:min(88vw,340px);
+  border-radius:34px;
+  padding:24px 24px 20px;
+  text-align:left;
+  /* the single hero drop shadow lives here */
+  box-shadow:
+    inset 2px 2px 1px rgba(255,255,255,.65),
+    inset -1px -1px 1px 1px rgba(255,255,255,.4),
+    0 24px 48px rgba(15,45,95,.22),
+    0 6px 14px rgba(15,45,95,.12);
+  transform:rotate(-1.2deg);
+  transition:transform .5s var(--spring);
+}
+.widget:hover{transform:rotate(0deg) translateY(-4px)}
+.widget .place{font-size:14px;font-weight:600;letter-spacing:-.01em;color:var(--ink-2)}
+.widget .temp{
+  font-size:64px;font-weight:200;letter-spacing:-.03em;line-height:1.05;
+  margin:2px 0 4px;
+}
+.widget .cond{font-size:14px;font-weight:500;color:var(--ink-2)}
+.widget .days{
+  display:flex;justify-content:space-between;
+  margin-top:18px;padding-top:14px;
+  border-top:1px solid rgba(255,255,255,.55);
+}
+.widget .day{display:flex;flex-direction:column;align-items:center;gap:5px;
+  font-size:12px;font-weight:600;color:var(--ink-2)}
+.widget .day b{font-weight:700;color:var(--ink)}
+.widget .day svg{width:18px;height:18px;stroke:var(--accent);
+  fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* scroll-edge fade above the floating bar */
+.scrolledge{
+  position:fixed;left:0;right:0;bottom:0;height:120px;z-index:15;
+  pointer-events:none;
+  background:linear-gradient(to top, rgba(234,244,255,.85), transparent);
+}
+
+/* ============ THE FLOATING TAB BAR (canonical iOS 26) ======
+   centered pill inset 21px from bottom + separate search circle */
+.tabwrap{
+  position:fixed;left:0;right:0;bottom:21px;z-index:30;
+  display:flex;justify-content:center;align-items:center;gap:10px;
+  padding:0 21px;
+  transition:transform .45s var(--spring);
+}
+.tabwrap.hid{transform:translateY(6px) scale(.94)}
+.tabbar{
+  display:flex;align-items:center;gap:2px;
+  border-radius:999px;
+  padding:6px;
+}
+.tab{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  min-width:64px;min-height:48px;justify-content:center;
+  border-radius:999px;
+  text-decoration:none;
+  font-size:10.5px;font-weight:600;letter-spacing:0;
+  color:var(--ink-2);
+  transition:background .25s ease,color .25s ease,transform .25s var(--spring);
+}
+.tab svg{width:21px;height:21px;stroke:currentColor;fill:none;
+  stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tab:hover{color:var(--ink)}
+.tab:active{transform:scale(.92)}
+.tab.active{color:var(--accent);background:rgba(255,255,255,.5)}
+.search{
+  width:52px;height:52px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:transform .3s var(--spring);
+}
+.search:hover{transform:scale(1.06)}
+.search:active{transform:scale(.9)}
+.search svg{width:19px;height:19px;stroke:var(--ink);stroke-width:2.1;
+  fill:none;stroke-linecap:round}
+
+/* ============ SECTIONS — content on the CANVAS, not in glass */
+section{padding:clamp(3.6rem,9vw,6.2rem) clamp(1.2rem,6vw,4rem);
+  max-width:1060px;margin:0 auto}
+.kicker{font-size:13px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+h2{font-size:clamp(1.7rem,3.6vw,2.6rem);font-weight:800;
+  letter-spacing:-.025em;line-height:1.1;max-width:22ch;margin-bottom:12px}
+.lede{color:var(--ink-2);font-size:1.06rem;line-height:1.6;
+  letter-spacing:-.01em;max-width:52ch}
+
+/* features: text on canvas; only the small ICON CHIP is glass */
+.feats{margin-top:2.8rem;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:2.4rem 2rem}
+.feat .chip{
+  width:48px;height:48px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  margin-bottom:14px;
+}
+.feat .chip svg{width:22px;height:22px;stroke:var(--accent);fill:none;
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.feat h3{font-size:1.08rem;font-weight:700;letter-spacing:-.015em;margin-bottom:6px}
+.feat p{font-size:.95rem;color:var(--ink-2);line-height:1.55;letter-spacing:-.008em}
+
+/* quote band: surface change for elevation, no shadow */
+.band{
+  background:linear-gradient(180deg,#0E2246,#0B1B3A);
+  color:#EAF4FF;
+  border-radius:0;
+  padding:clamp(3.6rem,9vw,6rem) clamp(1.2rem,6vw,4rem);
+  text-align:center;
+}
+.band blockquote{
+  font-size:clamp(1.3rem,3vw,1.9rem);
+  font-weight:600;letter-spacing:-.02em;line-height:1.35;
+  max-width:26ch;margin:0 auto 14px;
+}
+.band cite{font-style:normal;font-size:.92rem;color:rgba(234,244,255,.55)}
+
+.get{text-align:center;padding-bottom:190px}
+.get .cta{margin-top:26px}
+.foot{
+  text-align:center;font-size:12.5px;color:var(--ink-2);
+  padding:0 1rem 150px;letter-spacing:-.005em;
+}
+
+@media (max-width:520px){
+  .topnav .links{display:none}
+  .tab{min-width:56px}
+}
+@media (prefers-reduced-transparency:reduce){
+  .glass,.tabbar,.search{background:rgba(255,255,255,.9);
+    -webkit-backdrop-filter:none;backdrop-filter:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;
+    transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<div class="sky" aria-hidden="true"></div>
+<div class="ribbon r1" aria-hidden="true"></div>
+<div class="ribbon r2" aria-hidden="true"></div>
+<div class="ribbon r3" aria-hidden="true"></div>
+<div class="detail" aria-hidden="true"></div>
+
+<!-- lens filter: gentle edge displacement, sRGB, low blur -->
+<svg class="defs" aria-hidden="true">
+  <filter id="lens" x="-8%" y="-8%" width="116%" height="116%"
+          color-interpolation-filters="sRGB">
+    <feTurbulence type="fractalNoise" baseFrequency="0.014 0.014"
+                  numOctaves="1" seed="7" result="t"/>
+    <feGaussianBlur in="t" stdDeviation="2.5" result="m"/>
+    <feDisplacementMap in="SourceGraphic" in2="m" scale="38"
+                       xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+
+<!-- thin frosted top nav -->
+<nav class="topnav">
+  <a class="brand" href="#top">Aria</a>
+  <div class="links">
+    <a href="#why">Why Aria</a>
+    <a href="#word">Reviews</a>
+    <a href="#get">Download</a>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header class="hero" id="top">
+  <p class="eyebrow">Introducing Aria</p>
+  <h1>Weather,<br><span class="soft">beautifully.</span></h1>
+  <p class="sub">Forecasts rendered like the sky itself — clear, calm, and exactly where you left them.</p>
+  <div>
+    <a class="cta" href="#get">Get Aria free</a><a class="ghost" href="#why">Learn more ›</a>
+  </div>
+
+  <!-- the ONE focal element, the page's one drop shadow -->
+  <div class="widget glass">
+    <div class="place">Cupertino</div>
+    <div class="temp">72°</div>
+    <div class="cond">Mostly sunny · H 75° L 58°</div>
+    <div class="days">
+      <div class="day"><span>Tue</span>
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
+        <b>75°</b></div>
+      <div class="day"><span>Wed</span>
+        <svg viewBox="0 0 24 24"><path d="M6.5 15.5a4 4 0 1 1 .6-7.96A5 5 0 0 1 16.8 9.2 3.5 3.5 0 0 1 16 16H7"/></svg>
+        <b>71°</b></div>
+      <div class="day"><span>Thu</span>
+        <svg viewBox="0 0 24 24"><path d="M6.5 13.5a4 4 0 1 1 .6-7.96A5 5 0 0 1 16.8 7.2 3.5 3.5 0 0 1 16 14H7"/><path d="M9 17l-1 3M13 17l-1 3M17 17l-1 3"/></svg>
+        <b>64°</b></div>
+      <div class="day"><span>Fri</span>
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
+        <b>77°</b></div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ WHY ============ -->
+<section id="why">
+  <p class="kicker">Why Aria</p>
+  <h2>Everything you check. Nothing you don't.</h2>
+  <p class="lede">Aria answers the only question that matters — what's it like out — and gets out of the way.</p>
+
+  <div class="feats">
+    <div class="feat">
+      <div class="chip glass"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></div>
+      <h3>At a glance</h3>
+      <p>The next few hours, the next few days — readable in the time it takes to raise your phone.</p>
+    </div>
+    <div class="feat">
+      <div class="chip glass"><svg viewBox="0 0 24 24"><path d="M12 21s-6.5-5.2-6.5-10A6.5 6.5 0 0 1 12 4.5 6.5 6.5 0 0 1 18.5 11c0 4.8-6.5 10-6.5 10z"/><circle cx="12" cy="11" r="2.4"/></svg></div>
+      <h3>Rain, to the minute</h3>
+      <p>Hyperlocal precipitation timing so you know whether to wait it out or make a run for it.</p>
+    </div>
+    <div class="feat">
+      <div class="chip glass"><svg viewBox="0 0 24 24"><path d="M4 19h16M6.5 19c0-6 2-11 5.5-11s5.5 5 5.5 11"/><path d="M12 8V4.5"/></svg></div>
+      <h3>Feels-like, honestly</h3>
+      <p>Humidity, wind, and sun combined into one number your body will actually agree with.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ QUOTE BAND (surface-change elevation) ====== -->
+<section class="band" id="word" style="max-width:none">
+  <blockquote>"The first weather app that feels like looking out a window."</blockquote>
+  <cite>— App of the Day, twice</cite>
+</section>
+
+<!-- ============ GET ============ -->
+<section class="get" id="get">
+  <p class="kicker">Download</p>
+  <h2 style="margin-inline:auto">The sky, in your pocket.</h2>
+  <p class="lede" style="margin-inline:auto">Free on every device. No account needed.</p>
+  <a class="cta" href="#top">Get Aria free</a>
+</section>
+
+<p class="foot">Aria · Made under open skies · No ads, no tracking</p>
+
+<div class="scrolledge" aria-hidden="true"></div>
+
+<!-- ============ FLOATING TAB BAR + SEARCH ISLAND ============ -->
+<div class="tabwrap" id="tabwrap">
+  <nav class="tabbar glass" aria-label="Sections">
+    <a class="tab active" href="#top">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg>
+      Today</a>
+    <a class="tab" href="#why">
+      <svg viewBox="0 0 24 24"><path d="M6.5 15.5a4 4 0 1 1 .6-7.96A5 5 0 0 1 16.8 9.2 3.5 3.5 0 0 1 16 16H7"/></svg>
+      Forecast</a>
+    <a class="tab" href="#word">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-6.5-5.2-6.5-10A6.5 6.5 0 0 1 12 4.5 6.5 6.5 0 0 1 18.5 11c0 4.8-6.5 10-6.5 10z"/><circle cx="12" cy="11" r="2.4"/></svg>
+      Places</a>
+  </nav>
+  <div class="search glass" role="button" aria-label="Search" tabindex="0">
+    <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><line x1="15.5" y1="15.5" x2="21" y2="21"/></svg>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+/* tab bar: shrink on scroll down, spring back on scroll up */
+const wrap=document.getElementById('tabwrap');
+let lastY=scrollY;
+addEventListener('scroll',()=>{
+  const y=scrollY;
+  wrap.classList.toggle('hid', y>lastY && y>80);
+  lastY=y;
+},{passive:true});
+
+/* active tab tracks the section in view */
+const tabs=[...document.querySelectorAll('.tab')];
+const map={'top':0,'why':1,'word':2};
+const io=new IntersectionObserver(es=>{
+  es.forEach(e=>{
+    if(e.isIntersecting && map[e.target.id]!=null){
+      tabs.forEach(t=>t.classList.remove('active'));
+      tabs[map[e.target.id]].classList.add('active');
+    }
+  });
+},{threshold:.4});
+['top','why','word'].forEach(id=>{
+  const el=document.getElementById(id);if(el)io.observe(el);
+});
+
+/* ribbons drift very slowly — alive, not looping visibly */
+const rs=[...document.querySelectorAll('.ribbon')];
+const seeds=[3,47,91];
+function hash(n){n=(n<<13)^n;return(1-((n*(n*n*15731+789221)+1376312589)&0x7fffffff)/1073741824)*0.5+0.5}
+function n1(x){const i=Math.floor(x),f=x-i,u=f*f*(3-2*f);return hash(i)*(1-u)+hash(i+1)*u}
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+if(!reduced){
+  (function loop(){
+    const T=performance.now()/1000;
+    rs.forEach((r,i)=>{
+      const x=(n1(T*0.02+seeds[i])-0.5)*60,
+            y=(n1(T*0.016+seeds[i]+9)-0.5)*36;
+      r.style.translate=`${x.toFixed(1)}px ${y.toFixed(1)}px`;
+    });
+    requestAnimationFrame(loop);
+  })();
+}
+})();
+</script>
+</body>
+</html>

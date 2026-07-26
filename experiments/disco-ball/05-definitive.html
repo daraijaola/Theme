@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mirror Ball — The Definitive Study</title>
+<style>
+/* ==========================================================
+   MIRROR BALL — THE DEFINITIVE STUDY
+   Everything from Studies 2–5, plus the deep-research playbook:
+
+   LIGHT PHYSICS
+   · additive light: plus-lighter blending inside an isolated
+     container — overlapping lights SUM toward white
+   · multi-scale bloom baked into every canvas light sprite
+     (core + 2 halo scales, additive) = photographic glow
+   · lens-flare SYSTEM anchored to the pinspot: veiling glare,
+     anamorphic streak, aperture ghosts along the optical axis
+
+   LIVING MOTION (no visible loops)
+   · pendulum runs on real spring physics + noise "wind" —
+     it never repeats; the ball lags the cable via a second
+     chasing spring (physical follow-through)
+   · fog, flicker, dust all ride independent value-noise
+     fields on requestAnimationFrame
+   · sparkles fire on a Poisson random schedule at random
+     spots — no fixed clock anywhere in the star layer
+   · spring-smoothed pointer / gyro parallax = handheld camera
+
+   PERFORMANCE
+   · all particles (wall spots, dust, bokeh, sparkles) live on
+     ONE canvas with additive compositing; DOM keeps only the
+     tile sphere + big soft washes
+   ========================================================== */
+
+@property --breathe{syntax:"<number>";inherits:false;initial-value:1;}
+
+:root{
+  --room:#0A0716;
+  --violet:#7A3DF0;
+  --magenta:#F035B8;
+  --blue:#2E7CFF;
+  --ice:#EAF2FF;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--room);overflow:hidden;font-family:Georgia,serif}
+
+/* ================= ROOM ================= */
+.room{position:fixed;inset:0}
+.room::before{
+  content:"";position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 45% at 24% 10%, rgba(46,124,255,.15), transparent 62%),
+    radial-gradient(ellipse 62% 58% at 82% 86%, rgba(122,61,240,.28), transparent 65%),
+    radial-gradient(ellipse 50% 40% at 68% 20%, rgba(240,53,184,.09), transparent 60%);
+}
+.floorpool{
+  position:fixed;left:50%;bottom:0;
+  width:min(120vw,900px);height:24vh;transform:translateX(-50%);
+  pointer-events:none;z-index:2;
+  background:
+    radial-gradient(ellipse 46% 60% at 50% 100%, rgba(150,180,255,.10), transparent 70%),
+    radial-gradient(ellipse 22% 34% at 50% 100%, rgba(234,242,255,.08), transparent 75%);
+}
+.floorpool::after{
+  content:"";position:absolute;left:50%;bottom:2vh;
+  width:min(34vw,190px);height:7vh;transform:translateX(-50%);
+  border-radius:50%;
+  background:radial-gradient(ellipse at 50% 40%,
+    rgba(200,212,240,.11), rgba(140,150,200,.05) 55%, transparent 75%);
+  filter:blur(9px);
+}
+
+/* fog — two layers, JS-drifted by noise (no CSS loop) */
+.haze,.haze2{position:fixed;inset:-14%;pointer-events:none;z-index:3;will-change:transform}
+.haze{
+  background:
+    radial-gradient(ellipse 46% 32% at 42% 40%, rgba(150,120,255,.07), transparent 70%),
+    radial-gradient(ellipse 55% 42% at 60% 58%, rgba(122,61,240,.06), transparent 70%);
+}
+.haze2{
+  background:
+    radial-gradient(ellipse 60% 30% at 55% 70%, rgba(240,53,184,.045), transparent 72%),
+    radial-gradient(ellipse 40% 26% at 30% 30%, rgba(46,124,255,.05), transparent 70%);
+}
+
+/* ============ ADDITIVE LIGHT CONTAINER =================
+   isolation:isolate scopes the blending; cores use
+   plus-lighter (true summation), halos use screen.
+   Double declarations = graceful fallback. */
+.lights{position:fixed;inset:0;pointer-events:none;z-index:4;isolation:isolate}
+
+.cone,.cone2{position:fixed;mix-blend-mode:screen;mix-blend-mode:plus-lighter;will-change:opacity}
+.cone{
+  top:5vh;left:7vw;
+  width:min(72vw,760px);height:min(72vw,760px);
+  transform-origin:top left;transform:rotate(9deg);
+  background:conic-gradient(from 34deg at 0% 0%,
+    transparent 0deg,
+    rgba(200,220,255,.13) 6deg,
+    rgba(150,180,255,.06) 13deg,
+    transparent 22deg);
+  filter:blur(3px);
+}
+.cone2{
+  top:12vh;right:-4vw;
+  width:min(60vw,640px);height:min(60vw,640px);
+  transform-origin:top right;transform:rotate(-12deg);
+  background:conic-gradient(from 214deg at 100% 0%,
+    transparent 0deg,
+    rgba(240,53,184,.08) 7deg,
+    rgba(122,61,240,.045) 14deg,
+    transparent 22deg);
+  filter:blur(4px);
+}
+
+/* ============ LENS-FLARE SYSTEM (anchored to pinspot) ==== */
+.lamp{
+  position:fixed;top:4vh;left:6vw;
+  width:20px;height:14px;border-radius:4px;
+  background:linear-gradient(180deg,#4c4e5c,#1e2029);
+  z-index:6;
+}
+.lamp::after{
+  content:"";position:absolute;right:-7px;top:3px;
+  width:9px;height:9px;border-radius:50%;
+  background:var(--ice);
+  box-shadow:
+    0 0 10px 3px rgba(234,242,255,.95),
+    0 0 26px 10px rgba(140,170,255,.5),
+    0 0 64px 26px rgba(122,61,240,.3);
+}
+.flare{
+  position:fixed;inset:0;pointer-events:none;z-index:5;
+  animation:breathe 7.3s ease-in-out infinite;
+  opacity:calc(.85 * var(--breathe));
+}
+@keyframes breathe{0%,100%{--breathe:1}50%{--breathe:.86}}
+/* veiling glare: low-contrast wash from the source */
+.veil{
+  position:fixed;top:calc(4vh - 24vmin);left:calc(6vw - 24vmin);
+  width:48vmin;height:48vmin;border-radius:50%;
+  background:radial-gradient(circle, rgba(220,232,255,.10), rgba(160,180,255,.04) 45%, transparent 70%);
+  mix-blend-mode:screen;
+}
+/* anamorphic streak: horizontal, brightest at center, tapering */
+.streak{
+  position:fixed;top:calc(4vh + 5px);left:-8vw;
+  width:70vw;height:3px;
+  background:linear-gradient(90deg,
+    transparent, rgba(120,170,255,.5) 18%,
+    rgba(230,240,255,.95) 20%, rgba(120,170,255,.5) 22%,
+    transparent 60%);
+  filter:blur(1.2px);
+  mix-blend-mode:screen;mix-blend-mode:plus-lighter;
+}
+/* aperture ghosts marching along the lamp→center axis */
+.ghost{position:fixed;border-radius:50%;mix-blend-mode:screen}
+.g1{left:61vw;top:61.5vh;width:34px;height:34px;
+    background:radial-gradient(circle, rgba(120,220,255,.12), transparent 65%)}
+.g2{left:74.2vw;top:75.3vh;width:58px;height:58px;
+    clip-path:polygon(50% 0,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);
+    background:radial-gradient(circle, rgba(240,53,184,.09), transparent 68%)}
+.g3{left:87.4vw;top:89.1vh;width:26px;height:26px;
+    background:radial-gradient(circle, rgba(160,140,255,.12), transparent 65%)}
+
+/* ================= RIG (JS spring-driven) ================= */
+.scene{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:5}
+.cam{will-change:transform}
+.sway{display:flex;flex-direction:column;align-items:center;
+      transform-origin:top center;will-change:transform}
+.cable{width:2px;height:clamp(46px,10vh,105px);
+       background:linear-gradient(to bottom,transparent,rgba(234,242,255,.45))}
+.mount{width:14px;height:8px;border-radius:3px 3px 0 0;
+       background:linear-gradient(180deg,#8f93a4,#3a3d4a);position:relative}
+.mount::after{
+  content:"";position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);
+  width:26px;height:8px;border-radius:50%;
+  background:radial-gradient(ellipse, rgba(2,2,10,.55), transparent 70%);
+}
+.lag{transform-origin:top center;will-change:transform}
+
+/* ================= SPHERE ================= */
+.stage{--D:min(60vw,330px);width:var(--D);height:var(--D);perspective:1200px;position:relative}
+.ball{position:relative;width:100%;height:100%;
+      transform-style:preserve-3d;
+      animation:spin 29s linear infinite;will-change:transform}
+@keyframes spin{from{transform:rotateY(0)}to{transform:rotateY(360deg)}}
+.tile{
+  position:absolute;top:50%;left:50%;
+  backface-visibility:hidden;
+  box-shadow:inset 0 0 2px rgba(2,4,14,.55), inset 0 0 1px rgba(255,255,255,.4);
+}
+.tile.glint{animation:flare 29s linear infinite;animation-delay:var(--gd,0s)}
+@keyframes flare{
+  0%,9%,100%{filter:brightness(1)}
+  2.2%{filter:brightness(1.9)}
+  4%{filter:brightness(4) saturate(0);
+     box-shadow:0 0 14px 4px rgba(240,246,255,.9),
+                0 0 34px 12px rgba(140,170,255,.35)}
+  7.5%{filter:brightness(1.5)}
+}
+.tile.dead{background:linear-gradient(135deg,#1c1e2a,#0c0d16) !important;
+           box-shadow:inset 0 0 2px rgba(0,0,0,.8)}
+.core{position:absolute;inset:4%;border-radius:50%;
+      background:radial-gradient(circle at 33% 28%, #2b3048, #151330 60%, #080614 100%)}
+.poleao{position:absolute;left:50%;top:3%;width:26%;height:7%;
+        transform:translateX(-50%);border-radius:50%;
+        background:radial-gradient(ellipse, rgba(0,0,12,.4), transparent 70%);
+        z-index:2;filter:blur(2px)}
+.sheen{
+  position:absolute;inset:0;border-radius:50%;pointer-events:none;z-index:3;
+  background:
+    radial-gradient(circle at 30% 22%, rgba(240,246,255,.6) 0%, rgba(180,205,255,.2) 16%, transparent 40%),
+    radial-gradient(circle at 74% 76%, rgba(122,61,240,.3) 0%, transparent 48%),
+    radial-gradient(circle at 82% 40%, rgba(240,53,184,.15) 0%, transparent 36%),
+    radial-gradient(circle at 50% 96%, rgba(150,180,255,.12) 0%, transparent 30%);
+  mix-blend-mode:screen;
+}
+.rim{
+  position:absolute;inset:-1%;border-radius:50%;pointer-events:none;z-index:4;
+  background:radial-gradient(circle,
+    transparent 58%,transparent 66%,
+    rgba(210,225,255,.16) 71%, rgba(240,246,255,.3) 74%, transparent 78%);
+  mix-blend-mode:screen;
+  -webkit-mask-image:linear-gradient(135deg,#000 30%,rgba(0,0,0,.25) 75%);
+          mask-image:linear-gradient(135deg,#000 30%,rgba(0,0,0,.25) 75%);
+}
+.beamwheel{
+  position:absolute;inset:-55%;pointer-events:none;z-index:-1;border-radius:50%;
+  background:repeating-conic-gradient(from 0deg,
+    transparent 0deg 9deg,
+    rgba(226,236,255,.05) 9deg 11.5deg,
+    rgba(140,170,255,.03) 11.5deg 13deg,
+    transparent 13deg 24deg);
+  filter:blur(2px);
+  mix-blend-mode:screen;mix-blend-mode:plus-lighter;
+  animation:wheel 47s linear infinite;
+  -webkit-mask-image:radial-gradient(circle, transparent 26%, #000 34%, transparent 72%);
+          mask-image:radial-gradient(circle, transparent 26%, #000 34%, transparent 72%);
+}
+@keyframes wheel{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+
+/* ================= FX CANVAS ================= */
+#fx{position:fixed;inset:0;z-index:8;pointer-events:none}
+
+/* ================= GRAIN + GRADE ================= */
+.grain{
+  position:fixed;inset:-60%;z-index:50;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode:soft-light;opacity:.5;
+  animation:grainjump .9s steps(8) infinite;
+}
+@keyframes grainjump{
+  0%{transform:translate(0,0)}25%{transform:translate(-3%,2%)}
+  50%{transform:translate(2%,-3%)}75%{transform:translate(-1%,-2%)}
+  100%{transform:translate(3%,1%)}
+}
+.grade{
+  position:fixed;inset:0;pointer-events:none;z-index:40;
+  background:
+    radial-gradient(ellipse 120% 105% at 50% 46%, transparent 52%, rgba(4,2,12,.66) 100%),
+    linear-gradient(180deg, rgba(80,120,255,.04), rgba(90,30,140,.07)),
+    linear-gradient(0deg, rgba(16,12,34,.05), rgba(16,12,34,.05));
+}
+.caption{
+  position:fixed;bottom:3.6vh;left:0;right:0;text-align:center;z-index:41;
+  color:rgba(210,220,250,.4);font-style:italic;font-size:.85rem;letter-spacing:.12em;
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important}
+  .grain{opacity:.28}
+}
+</style>
+</head>
+<body>
+
+<div class="room" aria-hidden="true"></div>
+<div class="floorpool" aria-hidden="true"></div>
+<div class="haze" id="haze" aria-hidden="true"></div>
+<div class="haze2" id="haze2" aria-hidden="true"></div>
+
+<div class="lights" aria-hidden="true">
+  <div class="cone" id="cone"></div>
+  <div class="cone2" id="cone2"></div>
+</div>
+
+<div class="lamp" aria-hidden="true"></div>
+<div class="flare" aria-hidden="true">
+  <div class="veil"></div>
+  <div class="streak"></div>
+  <div class="ghost g1"></div>
+  <div class="ghost g2"></div>
+  <div class="ghost g3"></div>
+</div>
+
+<main class="scene">
+  <div class="cam" id="cam">
+    <div class="sway" id="sway">
+      <div class="cable"></div>
+      <div class="mount"></div>
+      <div class="lag" id="lag">
+        <div class="stage" id="stage">
+          <div class="beamwheel"></div>
+          <div class="ball" id="ball"><div class="core"></div></div>
+          <div class="poleao"></div>
+          <div class="sheen"></div>
+          <div class="rim"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<canvas id="fx" aria-hidden="true"></canvas>
+<div class="grain" aria-hidden="true"></div>
+<div class="grade" aria-hidden="true"></div>
+
+<p class="caption">The Definitive Study — light that adds, motion that lives.</p>
+
+<script>
+(function(){
+"use strict";
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ============ tiny value-noise (no libraries) ============ */
+function hash(n){n=(n<<13)^n;return(1-((n*(n*n*15731+789221)+1376312589)&0x7fffffff)/1073741824)*0.5+0.5}
+function n1(x){const i=Math.floor(x),f=x-i,u=f*f*(3-2*f);return hash(i)*(1-u)+hash(i+1)*u}
+function fbm(x){return .62*n1(x)+.28*n1(x*2.7+31.4)+.10*n1(x*6.1+7.7)}
+
+/* ============ SPHERE (as Study 5) ============ */
+const ball=document.getElementById('ball');
+const stage=document.getElementById('stage');
+const D=stage.getBoundingClientRect().width, R=D/2;
+const BANDS=14, period=29;
+const key ={x:-0.55,y:-0.6,z:0.58, r:234,g:242,b:255, w:1.05};
+const amb ={x:0.5, y:0.42,z:0.35, r:122,g:61, b:240, w:0.44};
+const mag ={x:0.85,y:-0.1,z:0.3,  r:240,g:53, b:184, w:0.18};
+const flo ={x:0,   y:1,   z:0.2,  r:150,g:180,b:255, w:0.15};
+function shadeT(nx,ny,nz){
+  let r=10,g=11,b=20;
+  [key,amb,mag,flo].forEach(L=>{
+    const d=Math.max(0,nx*L.x+ny*L.y+nz*L.z)*L.w;
+    r+=L.r*d;g+=L.g*d;b+=L.b*d;
+  });
+  return[Math.min(255,r),Math.min(255,g),Math.min(255,b)];
+}
+{
+  const frag=document.createDocumentFragment();
+  for(let b=0;b<BANDS;b++){
+    const lat=(-80+(160*(b+0.5)/BANDS))*Math.PI/180;
+    const bandR=Math.cos(lat)*R, circ=2*Math.PI*bandR;
+    const tileH=(Math.PI*R)/BANDS*0.82;
+    const n=Math.max(6,Math.round(circ/(tileH*1.1)));
+    const tileW=(circ/n)*0.82;
+    for(let i=0;i<n;i++){
+      if(Math.random()<0.015)continue;
+      const lon=2*Math.PI*i/n;
+      const t=document.createElement('div');
+      const nx=Math.cos(lat)*Math.sin(lon),ny=Math.sin(lat),nz=Math.cos(lat)*Math.cos(lon);
+      const jit=0.86+Math.random()*0.28;
+      const[r1,g1,b1]=shadeT(nx,ny,nz).map(v=>Math.min(255,v*jit));
+      const[r2,g2,b2]=[r1*0.55,g1*0.57,b1*0.66];
+      t.className='tile';
+      t.style.cssText=
+        `width:${(tileW*(0.94+Math.random()*0.12)).toFixed(1)}px;`+
+        `height:${(tileH*(0.94+Math.random()*0.12)).toFixed(1)}px;`+
+        `margin-left:${-tileW/2}px;margin-top:${-tileH/2}px;`+
+        `transform:rotateY(${lon}rad) rotateX(${-lat}rad) translateZ(${R*0.97}px);`+
+        `background:linear-gradient(135deg,rgb(${r1|0},${g1|0},${b1|0}),rgb(${r2|0},${g2|0},${b2|0}))`;
+      if(Math.random()<0.03)t.classList.add('dead');
+      else if(Math.random()<0.08){
+        t.classList.add('glint');
+        t.style.setProperty('--gd',(-(lon/(2*Math.PI))*period).toFixed(2)+'s');
+      }
+      frag.appendChild(t);
+    }
+  }
+  ball.appendChild(frag);
+}
+
+/* ============ CANVAS ENGINE ============ */
+const cv=document.getElementById('fx'), cx=cv.getContext('2d');
+let W,H,DPR;
+function resize(){
+  DPR=Math.min(devicePixelRatio||1,2);
+  W=innerWidth;H=innerHeight;
+  cv.width=W*DPR;cv.height=H*DPR;
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  cx.setTransform(DPR,0,0,DPR,0,0);
+}
+resize();addEventListener('resize',resize);
+
+/* pre-rendered glow sprites: multi-scale bloom baked in
+   (core + halos drawn additively at draw time) */
+function sprite(r,g,b){
+  const s=document.createElement('canvas');s.width=s.height=64;
+  const g2=s.getContext('2d');
+  const gr=g2.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,`rgba(${r},${g},${b},1)`);
+  gr.addColorStop(.35,`rgba(${r},${g},${b},.45)`);
+  gr.addColorStop(1,`rgba(${r},${g},${b},0)`);
+  g2.fillStyle=gr;g2.fillRect(0,0,64,64);
+  return s;
+}
+const SP={
+  ice:sprite(234,242,255), blue:sprite(120,170,255),
+  vio:sprite(150,100,255), magn:sprite(255,80,200),
+  gold:sprite(240,210,140)
+};
+function drawGlow(img,x,y,size,a){
+  /* baked photographic bloom: tight core + two halo scales, additive */
+  cx.globalAlpha=a;      cx.drawImage(img,x-size/2,y-size/2,size,size);
+  cx.globalAlpha=a*0.30; cx.drawImage(img,x-size*1.1,y-size*1.1,size*2.2,size*2.2);
+  cx.globalAlpha=a*0.10; cx.drawImage(img,x-size*2.25,y-size*2.25,size*4.5,size*4.5);
+  cx.globalAlpha=1;
+}
+
+/* wall spots: elliptical orbits, per-spot noise flicker, falloff+DOF */
+const spots=[];
+{
+  const cols=[SP.ice,SP.ice,SP.ice,SP.ice,SP.blue,SP.vio,SP.magn,SP.gold];
+  for(let i=0;i<30;i++){
+    const t01=Math.random();
+    spots.push({
+      col:cols[(Math.random()*cols.length)|0],
+      rad:0.28+t01*0.55,               /* orbit radius, ×min(W,H) */
+      sq:0.35+Math.random()*0.4,       /* ellipse squash (tilt) */
+      spd:(0.05+Math.random()*0.10)*(Math.random()<0.5?1:-1),
+      ph:Math.random()*Math.PI*2,
+      t01,                              /* depth 0 near … 1 far */
+      ns:Math.random()*100
+    });
+  }
+}
+/* dust motes + foreground bokeh */
+const motes=[];
+for(let i=0;i<30;i++)motes.push({
+  x:Math.random(),y:Math.random(),spd:0.01+Math.random()*0.02,
+  amp:8+Math.random()*26,ns:Math.random()*100,s:1.5+Math.random()*2,fg:false
+});
+for(let i=0;i<5;i++)motes.push({
+  x:Math.random(),y:Math.random(),spd:0.006+Math.random()*0.008,
+  amp:24+Math.random()*40,ns:Math.random()*100,s:14+Math.random()*14,fg:true
+});
+
+/* sparkles: Poisson schedule, spawn on the ball, star + bloom */
+const sparkles=[];let nextSpark=0;
+function spawnSpark(now,bx,by){
+  const a=Math.random()*Math.PI*2, r=Math.random()*R*0.9;
+  /* bias toward the lit upper-left hemisphere */
+  const lx=bx+Math.cos(a)*r*0.9-R*0.12, ly=by+Math.sin(a)*r*0.9-R*0.14;
+  sparkles.push({x:lx,y:ly,born:now,
+    life:420+Math.random()*420,
+    size:10+Math.random()*26,
+    rot:Math.random()*Math.PI});
+  nextSpark=now+300+Math.random()*1700;   /* irregular — never a beat */
+}
+function drawSpark(s,now){
+  const t=(now-s.born)/s.life;if(t>=1)return false;
+  /* attack fast, decay slow (weight) */
+  const env=t<0.22?t/0.22:1-((t-0.22)/0.78);
+  const L=s.size*(0.6+0.4*env), a=env*0.95;
+  cx.save();cx.translate(s.x,s.y);cx.rotate(s.rot+t*0.5);
+  cx.strokeStyle=`rgba(240,246,255,${a})`;
+  cx.lineWidth=1.4;
+  cx.beginPath();
+  cx.moveTo(-L,0);cx.lineTo(L,0);
+  cx.moveTo(0,-L);cx.lineTo(0,L);
+  cx.stroke();
+  cx.restore();
+  drawGlow(SP.ice,s.x,s.y,s.size*0.9,a*0.8);
+  return true;
+}
+
+/* ============ SPRING PHYSICS (pendulum + camera) ============ */
+let swA=0,swV=0;          /* pendulum angle (rad), velocity */
+let lagA=0,lagV=0;        /* chasing spring — physical follow-through */
+let camX=0,camY=0,camVX=0,camVY=0,tgX=0,tgY=0;
+const swayEl=document.getElementById('sway'),
+      lagEl=document.getElementById('lag'),
+      camEl=document.getElementById('cam'),
+      hazeEl=document.getElementById('haze'),
+      haze2El=document.getElementById('haze2'),
+      coneEl=document.getElementById('cone'),
+      cone2El=document.getElementById('cone2');
+
+addEventListener('pointermove',e=>{
+  tgX=(e.clientX/W-0.5)*14; tgY=(e.clientY/H-0.5)*9;
+},{passive:true});
+addEventListener('deviceorientation',e=>{
+  if(e.gamma==null)return;
+  tgX=Math.max(-1,Math.min(1,e.gamma/30))*14;
+  tgY=Math.max(-1,Math.min(1,(e.beta-45)/30))*9;
+},true);
+
+/* ============ MAIN LOOP ============ */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  const T=now/1000;
+
+  /* pendulum: spring + damping + noise wind → never repeats */
+  const wind=(fbm(T*0.11)-0.5)*0.010;
+  swV+=(-0.26*swA-0.055*swV+wind)*dt*60/16.7*dt*1000*0.001; /* stable-ish integ */
+  swV+=(-0.26*swA-0.055*swV+wind)*dt;
+  swA+=swV*dt;
+  /* ball chases the cable (follow-through) */
+  lagV+=((swA-lagA)*3.2-0.9*lagV)*dt;
+  lagA+=lagV*dt;
+
+  /* camera: spring-smoothed parallax + noise handheld bob */
+  camVX+=((tgX-camX)*6-4.2*camVX)*dt; camX+=camVX*dt;
+  camVY+=((tgY-camY)*6-4.2*camVY)*dt; camY+=camVY*dt;
+  const bobX=(fbm(T*0.07)-0.5)*8, bobY=(fbm(T*0.09+50)-0.5)*6;
+
+  if(!reduced){
+    swayEl.style.transform=`rotate(${(swA*57.3).toFixed(3)}deg)`;
+    lagEl.style.transform=`rotate(${((lagA-swA)*38).toFixed(3)}deg)`;
+    camEl.style.transform=`translate(${(camX*0.6+bobX).toFixed(1)}px,${(camY*0.6+bobY).toFixed(1)}px)`;
+    /* fog + cones ride independent noise fields */
+    hazeEl.style.transform=`translate(${((fbm(T*0.05)-0.5)*36).toFixed(1)}px,${((fbm(T*0.04+9)-0.5)*24).toFixed(1)}px)`;
+    haze2El.style.transform=`translate(${((fbm(T*0.03+77)-0.5)*44).toFixed(1)}px,${((fbm(T*0.045+31)-0.5)*28).toFixed(1)}px)`;
+    coneEl.style.opacity=(0.75+fbm(T*0.5)*0.35).toFixed(2);
+    cone2El.style.opacity=(0.65+fbm(T*0.4+20)*0.4).toFixed(2);
+  }
+
+  /* ---- canvas pass (additive light) ---- */
+  cx.clearRect(0,0,W,H);
+  cx.globalCompositeOperation='lighter';
+
+  const sr=stage.getBoundingClientRect();
+  const bx=sr.left+sr.width/2, by=sr.top+sr.height/2;
+  const M=Math.min(W,H);
+
+  /* orbiting wall spots */
+  for(const s of spots){
+    const th=s.ph+T*s.spd*Math.PI*2;
+    const x=bx+Math.cos(th)*s.rad*M + camX*(0.3+s.t01*0.5);
+    const y=by+Math.sin(th)*s.rad*M*s.sq + camY*(0.3+s.t01*0.5);
+    /* falloff with depth + noise flicker + hide on "far" half */
+    const vis=Math.sin(th)>-0.25?1:0.12;
+    const a=(0.5/(1+2.4*s.t01*s.t01))*(0.6+fbm(T*0.8+s.ns)*0.5)*vis;
+    const size=(9+s.t01*16)*(1+s.t01*0.8);
+    drawGlow(s.col,x,y,size,Math.min(0.8,a));
+  }
+  /* dust + bokeh */
+  for(const m of motes){
+    m.y+=m.spd*dt*4; if(m.y>1.05){m.y=-0.05;m.x=Math.random()}
+    const x=m.x*W+(fbm(T*0.2+m.ns)-0.5)*m.amp + camX*(m.fg?1.4:0.7);
+    const y=m.y*H + camY*(m.fg?1.4:0.7);
+    const tw=0.25+fbm(T*0.6+m.ns+50)*0.6;
+    if(m.fg)drawGlow(SP.blue,x,y,m.s*2.4,0.10*tw);
+    else drawGlow(SP.ice,x,y,m.s*2.2,0.28*tw);
+  }
+  /* sparkles (Poisson) */
+  if(!reduced&&now>nextSpark)spawnSpark(now,bx,by);
+  for(let i=sparkles.length-1;i>=0;i--)
+    if(!drawSpark(sparkles[i],now))sparkles.splice(i,1);
+
+  cx.globalCompositeOperation='source-over';
+  requestAnimationFrame(frame);
+}
+if(reduced){
+  /* one calm static frame for reduced-motion users */
+  requestAnimationFrame(t=>{last=t;frame(t)});
+}else{
+  requestAnimationFrame(frame);
+}
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atelier Nova — After Dark</title>
+<style>
+/* ==========================================================
+   ATELIER NOVA — a normal landing page for a creative studio.
+   Theme: DISCO — embedded, never drawn.
+   No ball. No vinyl. No dancers. The theme lives in:
+
+   · TWO COLOR SYSTEMS (from research):
+     graphics palette (chrome/gold) → lives in the TYPE
+     lighting palette (silver/blue/violet/magenta) → lives in the ROOM
+   · LIGHT PHYSICS: additive plus-lighter washes, bloom-baked
+     glows, halation on hot highlights, falloff down the page
+   · MOTION GRAMMAR: sheen sweeps across type at irregular
+     Poisson moments; glints fire like camera diffraction;
+     lights drift on noise; hovers bloom in fast, decay slow
+   · FILM: grain, grade, vignette — the page is "photographed"
+
+   Self-contained. System fonts. Offline. No libraries.
+   ========================================================== */
+
+:root{
+  --room:#0A0716;
+  --violet:#7A3DF0;
+  --magenta:#F035B8;
+  --blue:#2E7CFF;
+  --ice:#EAF2FF;
+  --gold:#F0CE7E;
+  --chrome-hi:#FFFDF4;
+  --display:'Arial Black','Arial Bold',Arial,sans-serif;
+  --body:Georgia,'Times New Roman',serif;
+  --util:'Courier New',monospace;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--room);
+  color:var(--ice);
+  font-family:var(--body);
+  overflow-x:hidden;
+  line-height:1.6;
+}
+
+/* ============ THE ROOM (lighting palette) ============
+   the page is a dark club space: an ice-white key from
+   upper-left, magenta wash from the right, violet floor
+   ambience — all summing additively where they cross */
+.roomlight{position:fixed;inset:0;pointer-events:none;z-index:0;isolation:isolate}
+.wash{position:absolute;will-change:transform,opacity;
+      mix-blend-mode:screen;mix-blend-mode:plus-lighter}
+.wash.key{
+  top:-30vh;left:-25vw;width:90vw;height:90vh;
+  background:radial-gradient(ellipse at 35% 35%, rgba(200,220,255,.13), rgba(140,170,255,.05) 45%, transparent 70%);
+}
+.wash.mag{
+  top:10vh;right:-30vw;width:80vw;height:80vh;
+  background:radial-gradient(ellipse at 60% 40%, rgba(240,53,184,.10), rgba(122,61,240,.04) 50%, transparent 72%);
+}
+.wash.vio{
+  bottom:-25vh;left:10vw;width:85vw;height:70vh;
+  background:radial-gradient(ellipse at 50% 60%, rgba(122,61,240,.12), transparent 68%);
+}
+
+/* ============ FILM LAYERS ============ */
+.grain{
+  position:fixed;inset:-60%;z-index:60;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode:soft-light;opacity:.45;
+  animation:grainjump .9s steps(8) infinite;
+}
+@keyframes grainjump{
+  0%{transform:translate(0,0)}25%{transform:translate(-3%,2%)}
+  50%{transform:translate(2%,-3%)}75%{transform:translate(-1%,-2%)}
+  100%{transform:translate(3%,1%)}
+}
+.grade{
+  position:fixed;inset:0;pointer-events:none;z-index:55;
+  background:
+    radial-gradient(ellipse 130% 110% at 50% 40%, transparent 55%, rgba(4,2,12,.6) 100%),
+    linear-gradient(180deg, rgba(80,120,255,.03), rgba(90,30,140,.06));
+}
+
+/* glint canvas: diffraction sparkles fire irregularly on type edges */
+#glints{position:fixed;inset:0;z-index:50;pointer-events:none}
+
+/* ============ HERO ============ */
+.hero{
+  position:relative;z-index:2;
+  min-height:100svh;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:0 clamp(1.25rem,6vw,5rem);
+}
+.eyebrow{
+  font-family:var(--util);
+  font-size:.72rem;letter-spacing:.5em;text-transform:uppercase;
+  color:var(--blue);
+  text-shadow:0 0 12px rgba(46,124,255,.8), 0 0 30px rgba(46,124,255,.4); /* neon signage */
+  margin-bottom:1.2rem;
+}
+/* THE TYPE — the graphics palette lives here: chrome & gold.
+   the sheen layer sweeps across it like light over lamé */
+h1{
+  font-family:var(--display);
+  font-size:clamp(2.9rem,11.5vw,8.6rem);
+  line-height:.9;letter-spacing:-.02em;text-transform:uppercase;
+  max-width:12ch;
+  position:relative;
+}
+h1 .chrome{
+  display:block;
+  background:linear-gradient(180deg,
+    var(--chrome-hi) 0%, var(--gold) 30%, #9a7a2e 47%,
+    var(--chrome-hi) 53%, #C7D0E4 74%, #6E7BA6 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 3px 0 rgba(60,40,110,.5))
+         drop-shadow(0 10px 30px rgba(240,53,184,.22));
+}
+/* the moving specular: a bright band that slides across the
+   letters at irregular moments (JS-triggered, never a loop) */
+h1 .sheen{
+  position:absolute;inset:0;
+  background:linear-gradient(115deg,
+    transparent 42%, rgba(255,255,255,.85) 50%, transparent 58%);
+  background-size:280% 100%;
+  background-position:120% 0;
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  pointer-events:none;
+}
+h1 .sheen.run{animation:sweep 1.35s cubic-bezier(.55,.06,.28,.99) 1}
+@keyframes sweep{from{background-position:120% 0}to{background-position:-40% 0}}
+
+.lede{
+  margin:1.6rem 0 2.4rem;
+  max-width:44ch;
+  font-size:clamp(1rem,2.3vw,1.25rem);
+  font-style:italic;
+  color:rgba(234,242,255,.78);
+}
+/* CTA — lit like the room: bloom on hover, attack fast decay slow */
+.cta{
+  display:inline-block;width:max-content;
+  font-family:var(--display);
+  font-size:clamp(.85rem,1.9vw,1rem);
+  letter-spacing:.16em;text-transform:uppercase;
+  color:#0A0716;text-decoration:none;
+  background:linear-gradient(120deg,var(--gold),var(--chrome-hi) 45%,var(--magenta));
+  background-size:200% 100%;background-position:0% 0;
+  padding:1.05rem 2.7rem;border-radius:999px;
+  box-shadow:
+    0 0 0 2px rgba(234,242,255,.22),
+    0 0 24px rgba(240,53,184,.35),
+    0 0 70px rgba(122,61,240,.2);
+  transition:
+    background-position .9s cubic-bezier(.2,.7,.3,1),
+    box-shadow .16s ease-out,      /* attack: fast */
+    transform .16s ease-out;
+}
+.cta:hover,.cta:focus-visible{
+  background-position:100% 0;
+  transform:translateY(-2px);
+  box-shadow:
+    0 0 0 2px rgba(234,242,255,.5),
+    0 0 34px rgba(240,53,184,.7),
+    0 0 100px rgba(122,61,240,.45);
+  transition:
+    background-position .9s cubic-bezier(.2,.7,.3,1),
+    box-shadow .8s ease-in,        /* decay: slow */
+    transform .8s ease-in;
+}
+.cta:focus-visible{outline:3px solid var(--blue);outline-offset:4px}
+
+/* ============ SIGNAGE DIVIDER ============ */
+.sign{
+  position:relative;z-index:2;
+  border-top:1px solid rgba(234,242,255,.14);
+  border-bottom:1px solid rgba(234,242,255,.14);
+  padding:.85rem 0;overflow:hidden;
+  background:linear-gradient(90deg, rgba(122,61,240,.10), rgba(240,53,184,.10), rgba(46,124,255,.10));
+}
+.sign-track{
+  display:flex;gap:3.2rem;width:max-content;
+  animation:slide 26s linear infinite;
+  font-family:var(--util);
+  font-size:.72rem;letter-spacing:.4em;text-transform:uppercase;
+  color:rgba(234,242,255,.55);white-space:nowrap;
+}
+.sign-track b{color:var(--gold);font-weight:normal;
+              text-shadow:0 0 10px rgba(240,206,126,.6)}
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* ============ WORK — lit tiles ============
+   cards glow-pulse on OFFSET clocks (never in sync),
+   and the page's light falls off with depth: each row
+   slightly dimmer than the last (falloff) */
+section{position:relative;z-index:2;padding:clamp(4rem,10vw,7rem) clamp(1.25rem,6vw,5rem)}
+.seclabel{
+  font-family:var(--util);font-size:.7rem;letter-spacing:.45em;
+  text-transform:uppercase;color:var(--magenta);
+  text-shadow:0 0 10px rgba(240,53,184,.7);
+  display:block;margin-bottom:1rem;
+}
+h2{
+  font-family:var(--display);
+  font-size:clamp(1.8rem,5vw,3.2rem);
+  line-height:1;text-transform:uppercase;
+  background:linear-gradient(180deg,var(--chrome-hi),#C7D0E4 55%,#7E8AB0);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 26px rgba(46,124,255,.3));
+  margin-bottom:.9rem;
+}
+.secled{max-width:52ch;color:rgba(234,242,255,.72);font-size:clamp(.98rem,2vw,1.12rem)}
+
+.grid{
+  margin-top:3rem;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:16px;
+}
+.card{
+  --glow:var(--magenta);
+  position:relative;border-radius:12px;
+  padding:1.7rem 1.5rem 1.6rem;
+  border:1px solid rgba(234,242,255,.12);
+  background:linear-gradient(165deg, rgba(234,242,255,.05), rgba(10,7,22,.6));
+  animation:cardpulse var(--pd,5.6s) ease-in-out var(--cd,0s) infinite;
+  transition:transform .18s ease-out, box-shadow .18s ease-out;
+  opacity:0;transform:translateY(22px);
+}
+.card.in{opacity:1;transform:translateY(0);
+         transition:opacity .8s cubic-bezier(.2,.7,.3,1), transform .8s cubic-bezier(.2,.7,.3,1)}
+.card:nth-child(1){--glow:var(--magenta)}
+.card:nth-child(2){--glow:var(--blue)}
+.card:nth-child(3){--glow:var(--violet)}
+.card:nth-child(4){--glow:var(--gold)}
+@keyframes cardpulse{
+  0%,100%{box-shadow:0 0 0 rgba(0,0,0,0)}
+  50%{box-shadow:inset 0 0 30px color-mix(in srgb,var(--glow) 16%,transparent),
+                 0 0 26px color-mix(in srgb,var(--glow) 28%,transparent)}
+}
+.card:hover{
+  transform:translateY(-5px);
+  box-shadow:inset 0 0 34px color-mix(in srgb,var(--glow) 24%,transparent),
+             0 0 40px color-mix(in srgb,var(--glow) 45%,transparent);
+  transition:transform .15s ease-out, box-shadow .15s ease-out;
+}
+.card .no{
+  font-family:var(--util);font-size:.66rem;letter-spacing:.35em;
+  color:var(--glow);text-transform:uppercase;
+}
+.card h3{
+  font-family:var(--display);font-size:1.2rem;text-transform:uppercase;
+  margin:.55rem 0 .5rem;color:var(--ice);
+}
+.card p{font-size:.94rem;color:rgba(234,242,255,.68)}
+
+/* light falloff with page depth: further sections sit deeper in the dark */
+.deep{background:linear-gradient(180deg, transparent, rgba(4,2,12,.5))}
+
+/* ============ FINALE ============ */
+.finale{text-align:center;padding-bottom:7rem}
+.finale .lede{margin-left:auto;margin-right:auto}
+.foot{
+  margin-top:4.5rem;
+  font-family:var(--util);font-size:.66rem;letter-spacing:.32em;
+  text-transform:uppercase;color:rgba(234,242,255,.35);
+}
+
+@media (max-width:640px){
+  .sign-track{font-size:.62rem;gap:2rem}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+  .grain{opacity:.25}
+  .card{opacity:1;transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="roomlight" aria-hidden="true">
+  <div class="wash key" id="wkey"></div>
+  <div class="wash mag" id="wmag"></div>
+  <div class="wash vio" id="wvio"></div>
+</div>
+
+<canvas id="glints" aria-hidden="true"></canvas>
+
+<!-- ================= HERO ================= -->
+<header class="hero">
+  <p class="eyebrow">Atelier Nova · Open After Dark</p>
+  <h1>
+    <span style="position:relative;display:block">
+      <span class="chrome">We make</span>
+      <span class="sheen" id="sheen1" aria-hidden="true">We make</span>
+    </span>
+    <span style="position:relative;display:block">
+      <span class="chrome">brands shine</span>
+      <span class="sheen" id="sheen2" aria-hidden="true">brands shine</span>
+    </span>
+  </h1>
+  <p class="lede">A design studio for the hours when everyone else has gone home. Identity, motion, and interfaces — finished to catch the light.</p>
+  <a class="cta" href="#work">See the work</a>
+</header>
+
+<!-- ================= SIGNAGE ================= -->
+<div class="sign" aria-hidden="true">
+  <div class="sign-track">
+    <span>Identity <b>★</b> Motion <b>★</b> Interfaces <b>★</b> Type</span>
+    <span>Est. Midnight <b>★</b> Booking Winter Projects</span>
+    <span>Identity <b>★</b> Motion <b>★</b> Interfaces <b>★</b> Type</span>
+    <span>Est. Midnight <b>★</b> Booking Winter Projects</span>
+  </div>
+</div>
+
+<!-- ================= WORK ================= -->
+<section id="work">
+  <span class="seclabel">What we do</span>
+  <h2>Four ways to glow</h2>
+  <p class="secled">Every discipline tuned to the same idea: work that holds attention the way a lit room holds a crowd.</p>
+
+  <div class="grid">
+    <article class="card" style="--pd:5.6s;--cd:0s">
+      <span class="no">01 · Identity</span>
+      <h3>Marks &amp; Wordmarks</h3>
+      <p>Logos built to be remembered at a glance and loved up close — engineered in vectors, not pixels.</p>
+    </article>
+    <article class="card" style="--pd:6.8s;--cd:1.7s">
+      <span class="no">02 · Motion</span>
+      <h3>Living Interfaces</h3>
+      <p>Micro-interactions with real physics: attack, decay, follow-through. Nothing snaps, everything lands.</p>
+    </article>
+    <article class="card" style="--pd:6.1s;--cd:3.1s">
+      <span class="no">03 · Web</span>
+      <h3>Sites That Perform</h3>
+      <p>Fast, accessible, and lit with intention — designed down to how the light falls across a headline.</p>
+    </article>
+    <article class="card" style="--pd:7.3s;--cd:4.4s">
+      <span class="no">04 · Type</span>
+      <h3>Custom Lettering</h3>
+      <p>Display type with material presence — chrome, satin, glass — drawn as code and crisp at any size.</p>
+    </article>
+  </div>
+</section>
+
+<!-- ================= FINALE ================= -->
+<section class="finale deep">
+  <span class="seclabel">Booking now</span>
+  <h2>Bring us the dark</h2>
+  <p class="lede">The best rooms start unlit. Tell us what you're building, and we'll find where the light goes.</p>
+  <a class="cta" href="#top">Start a project</a>
+  <p class="foot">Atelier Nova · Somewhere downtown · Replies after sunset</p>
+</section>
+
+<script>
+(function(){
+"use strict";
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* tiny value-noise */
+function hash(n){n=(n<<13)^n;return(1-((n*(n*n*15731+789221)+1376312589)&0x7fffffff)/1073741824)*0.5+0.5}
+function n1(x){const i=Math.floor(x),f=x-i,u=f*f*(3-2*f);return hash(i)*(1-u)+hash(i+1)*u}
+function fbm(x){return .62*n1(x)+.28*n1(x*2.7+31.4)+.10*n1(x*6.1+7.7)}
+
+/* ---- room lights drift on independent noise fields ---- */
+const wkey=document.getElementById('wkey'),
+      wmag=document.getElementById('wmag'),
+      wvio=document.getElementById('wvio');
+
+/* ---- glint canvas: diffraction sparkles near the headline,
+        fired on a Poisson schedule — camera language, not decor */
+const cv=document.getElementById('glints'),cx=cv.getContext('2d');
+let W,H,DPR;
+function resize(){
+  DPR=Math.min(devicePixelRatio||1,2);
+  W=innerWidth;H=innerHeight;
+  cv.width=W*DPR;cv.height=H*DPR;
+  cv.style.width=W+'px';cv.style.height=H+'px';
+  cx.setTransform(DPR,0,0,DPR,0,0);
+}
+resize();addEventListener('resize',resize);
+
+const h1=document.querySelector('h1');
+const sparks=[];let nextSpark=performance.now()+900;
+function spawn(now){
+  const r=h1.getBoundingClientRect();
+  if(r.bottom>0&&r.top<H){
+    sparks.push({
+      x:r.left+Math.random()*r.width,
+      y:r.top+Math.random()*r.height,
+      born:now,life:380+Math.random()*400,
+      size:6+Math.random()*14,rot:Math.random()*Math.PI
+    });
+  }
+  nextSpark=now+700+Math.random()*2600;
+}
+function drawSpark(s,now){
+  const t=(now-s.born)/s.life;if(t>=1)return false;
+  const env=t<0.25?t/0.25:1-((t-0.25)/0.75);   /* attack fast, decay slow */
+  const L=s.size*(0.5+0.5*env),a=env*0.9;
+  cx.save();cx.translate(s.x,s.y);cx.rotate(s.rot);
+  cx.strokeStyle=`rgba(240,246,255,${a})`;cx.lineWidth=1.2;
+  cx.beginPath();cx.moveTo(-L,0);cx.lineTo(L,0);cx.moveTo(0,-L);cx.lineTo(0,L);cx.stroke();
+  cx.restore();
+  cx.globalCompositeOperation='lighter';
+  const gr=cx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.size);
+  gr.addColorStop(0,`rgba(234,242,255,${a*.5})`);gr.addColorStop(1,'rgba(234,242,255,0)');
+  cx.fillStyle=gr;cx.fillRect(s.x-s.size,s.y-s.size,s.size*2,s.size*2);
+  cx.globalCompositeOperation='source-over';
+  return true;
+}
+
+/* ---- sheen sweeps: irregular, alternating lines ---- */
+const sheens=[document.getElementById('sheen1'),document.getElementById('sheen2')];
+let nextSheen=performance.now()+1400;
+function fireSheen(now){
+  const s=sheens[(Math.random()*sheens.length)|0];
+  s.classList.remove('run');void s.offsetWidth;s.classList.add('run');
+  nextSheen=now+2600+Math.random()*5200;
+}
+
+/* ---- card reveals ---- */
+const io=new IntersectionObserver(es=>{
+  es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}});
+},{threshold:.2});
+document.querySelectorAll('.card').forEach(c=>io.observe(c));
+if(reduced)document.querySelectorAll('.card').forEach(c=>c.classList.add('in'));
+
+/* ---- main loop ---- */
+function frame(now){
+  const T=now/1000;
+  if(!reduced){
+    wkey.style.transform=`translate(${((fbm(T*0.05)-0.5)*46).toFixed(1)}px,${((fbm(T*0.04+9)-0.5)*30).toFixed(1)}px)`;
+    wmag.style.transform=`translate(${((fbm(T*0.04+40)-0.5)*52).toFixed(1)}px,${((fbm(T*0.05+71)-0.5)*34).toFixed(1)}px)`;
+    wvio.style.transform=`translate(${((fbm(T*0.03+15)-0.5)*40).toFixed(1)}px,${((fbm(T*0.045+55)-0.5)*26).toFixed(1)}px)`;
+    wkey.style.opacity=(0.8+fbm(T*0.4)*0.3).toFixed(2);
+    wmag.style.opacity=(0.7+fbm(T*0.33+8)*0.35).toFixed(2);
+    if(now>nextSpark)spawn(now);
+    if(now>nextSheen)fireSheen(now);
+  }
+  cx.clearRect(0,0,W,H);
+  for(let i=sparks.length-1;i>=0;i--)
+    if(!drawSpark(sparks[i],now))sparks.splice(i,1);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

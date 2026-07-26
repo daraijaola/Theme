@@ -48,6 +48,18 @@ just reward good output.
 
 Dataset shape: `theme → (generic ❌, distinctive ✅)` pairs.
 
+## Repo map
+
+- **`data/research/`** — theme DNA research, one file per theme. Cultural root,
+  spatial/lighting DNA, graphic DNA, materials, palette, motion DNA, anti-slop
+  guardrails, reference anchors. This is the research-phase output format.
+- **`data/vocab/`** — critique language. Terms paired with the sentence that
+  uses them, so the model names a fault instead of gesturing at it.
+- **`experiments/`** — preference chains: bad → good outputs on the same brief.
+  The ❌ files are dataset material, not clutter. **Never delete, rename, or
+  tidy them** — the product is trained on the gap between the pair. See
+  `experiments/README.md` for what each file is and the lesson it encodes.
+
 ## Team
 
 | Who | Role |

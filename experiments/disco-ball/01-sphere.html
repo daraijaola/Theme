@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mirror Ball — Study No. 2</title>
+<style>
+/* ==========================================================
+   MIRROR BALL — STUDY No.2
+   A true 3D sphere of discrete mirror tiles, built from
+   researched DNA: theatrical warm floodlight, dark glamorous
+   room, hypnotic rotation, thrown traveling light.
+   Self-contained. No libraries. Works offline.
+   ========================================================== */
+
+:root{
+  --room:#120A10;          /* warm near-black, not pure black */
+  --amber:#FFB347;         /* airport floodlight warmth */
+  --gold:#D4AF37;
+  --pink:#FF369B;
+  --blue:#2F6BFF;
+  --purple:#4B2178;
+  --white:#FFF8EE;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+
+html,body{height:100%}
+
+body{
+  background:var(--room);
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-family:Georgia,serif;
+}
+
+/* ---------- THE ROOM ---------- */
+/* layered washes: warm floodlight from upper left,
+   cool violet ambience lower right, vignette edges */
+.room{
+  position:fixed;
+  inset:0;
+}
+.room::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(ellipse 60% 45% at 30% 18%, rgba(255,179,71,.16), transparent 65%),
+    radial-gradient(ellipse 55% 50% at 78% 85%, rgba(75,33,120,.30), transparent 65%),
+    radial-gradient(ellipse 120% 100% at 50% 50%, transparent 55%, rgba(0,0,0,.55) 100%);
+}
+/* faint floor line to ground the space */
+.room::after{
+  content:"";
+  position:absolute;
+  left:0;right:0;bottom:0;
+  height:26vh;
+  background:linear-gradient(to top, rgba(255,248,238,.05), transparent);
+}
+
+/* ---------- THROWN LIGHT ----------
+   the field of small light squares the ball casts,
+   traveling horizontally around the room in sync
+   with the rotation period */
+.thrown{
+  position:fixed;
+  inset:0;
+  overflow:hidden;
+  pointer-events:none;
+}
+.fleck{
+  position:absolute;
+  width:14px;
+  height:11px;
+  border-radius:2px;
+  background:var(--white);
+  opacity:0;
+  filter:blur(1.5px);
+  mix-blend-mode:screen;
+  animation:travel var(--period,26s) linear infinite;
+  animation-delay:var(--d,0s);
+}
+@keyframes travel{
+  0%   {transform:translateX(-6vw)  scale(.8) skewX(-6deg); opacity:0}
+  8%   {opacity:var(--o,.5)}
+  50%  {transform:translateX(50vw)  scale(1.15) skewX(4deg); opacity:var(--o,.5)}
+  92%  {opacity:var(--o,.5)}
+  100% {transform:translateX(108vw) scale(.8) skewX(-6deg); opacity:0}
+}
+
+/* ---------- RIG ---------- */
+.rig{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  z-index:2;
+}
+.cable{
+  width:2px;
+  height:clamp(48px,10vh,110px);
+  background:linear-gradient(to bottom, transparent, rgba(255,248,238,.4));
+}
+.mount{
+  width:14px;height:8px;
+  border-radius:3px 3px 0 0;
+  background:linear-gradient(180deg,#8a8a96,#3c3c46);
+}
+
+/* ---------- THE SPHERE ---------- */
+.stage{
+  /* ball diameter */
+  --D:min(64vw,340px);
+  width:var(--D);
+  height:var(--D);
+  perspective:1200px;
+}
+.ball{
+  position:relative;
+  width:100%;
+  height:100%;
+  transform-style:preserve-3d;
+  animation:spin var(--period,26s) linear infinite;
+}
+@keyframes spin{
+  from{transform:rotateY(0deg)}
+  to  {transform:rotateY(360deg)}
+}
+/* each mirror tile — positioned by JS with 3D transforms.
+   brightness per tile is set inline from its angle to the light */
+.tile{
+  position:absolute;
+  top:50%;
+  left:50%;
+  backface-visibility:hidden;
+  background:
+    linear-gradient(135deg,
+      rgba(255,255,255,.9) 0%,
+      rgba(200,205,220,.55) 35%,
+      rgba(120,126,150,.4) 65%,
+      rgba(60,64,84,.5) 100%);
+  box-shadow:inset 0 0 1px rgba(255,255,255,.6);
+}
+/* occasional hard glints: a few tiles flare white as they
+   pass the light — staggered by inline delay */
+.tile.glint{
+  animation:flare var(--period,26s) linear infinite;
+  animation-delay:var(--gd,0s);
+}
+@keyframes flare{
+  0%,7%,100%{filter:brightness(1)}
+  3.5%{filter:brightness(3.4) saturate(0);
+       box-shadow:0 0 18px rgba(255,248,238,.95), inset 0 0 2px #fff}
+}
+
+/* soft core behind tiles so gaps read as sphere body */
+.core{
+  position:absolute;
+  inset:4%;
+  border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, #2e3242, #0c0d16 70%);
+  transform:translateZ(0);
+}
+
+/* stationary specular overlay — the fixed floodlight's
+   hot reflection, which does NOT rotate with the ball */
+.sheen{
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  pointer-events:none;
+  z-index:3;
+  background:
+    radial-gradient(circle at 32% 24%, rgba(255,248,238,.55) 0%, rgba(255,224,178,.18) 18%, transparent 42%),
+    radial-gradient(circle at 70% 78%, rgba(75,33,120,.35) 0%, transparent 45%);
+  mix-blend-mode:screen;
+}
+/* halo the ball throws into the air around itself */
+.halo{
+  position:absolute;
+  inset:-38%;
+  border-radius:50%;
+  pointer-events:none;
+  background:radial-gradient(circle,
+    rgba(255,248,238,.14) 0%,
+    rgba(255,179,71,.08) 30%,
+    rgba(255,54,155,.05) 50%,
+    transparent 70%);
+  animation:breathe 7s ease-in-out infinite;
+}
+@keyframes breathe{
+  0%,100%{opacity:.8;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.05)}
+}
+
+/* ---------- DUST ----------
+   diamond-dust motes drifting down through the light */
+.dust{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+.mote{
+  position:absolute;
+  top:-2vh;
+  width:3px;height:3px;
+  border-radius:50%;
+  background:var(--white);
+  opacity:0;
+  animation:fall var(--ft,14s) linear infinite;
+  animation-delay:var(--fd,0s);
+}
+@keyframes fall{
+  0%  {transform:translateY(0) translateX(0); opacity:0}
+  10% {opacity:.55}
+  90% {opacity:.35}
+  100%{transform:translateY(104vh) translateX(4vw); opacity:0}
+}
+
+/* ---------- caption ---------- */
+.caption{
+  position:fixed;
+  bottom:4vh;
+  left:0;right:0;
+  text-align:center;
+  color:rgba(255,248,238,.45);
+  font-style:italic;
+  font-size:.85rem;
+  letter-spacing:.12em;
+  z-index:4;
+}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="room" aria-hidden="true"></div>
+<div class="thrown" id="thrown" aria-hidden="true"></div>
+<div class="dust" id="dust" aria-hidden="true"></div>
+
+<main class="rig">
+  <div class="cable"></div>
+  <div class="mount"></div>
+  <div class="stage">
+    <div class="ball" id="ball">
+      <div class="core"></div>
+      <!-- tiles injected here -->
+    </div>
+    <div class="sheen"></div>
+    <div class="halo"></div>
+  </div>
+</main>
+
+<p class="caption">Study No.2 — the ball, taken seriously.</p>
+
+<script>
+/* ==========================================================
+   Build a true 3D sphere of mirror tiles.
+   Latitude bands; tiles per band scales with circumference,
+   so tiles stay square-ish and foreshorten naturally.
+   Each tile is shaded by its angle to a fixed light
+   direction (upper-left floodlight).
+   ========================================================== */
+(function(){
+  const ball = document.getElementById('ball');
+  const stage = document.querySelector('.stage');
+  const D = stage.getBoundingClientRect().width;
+  const R = D/2;
+
+  const BANDS = 14;                 // latitude rows
+  const light = {x:-0.55, y:-0.6, z:0.58}; // normalized-ish light dir
+  const period = 26;                // seconds per rotation
+
+  let frag = document.createDocumentFragment();
+  let tileCount = 0;
+
+  for(let b=0;b<BANDS;b++){
+    // latitude angle from -80° to +80° (skip extreme poles)
+    const lat = (-80 + (160*(b+0.5)/BANDS)) * Math.PI/180;
+    const bandR = Math.cos(lat)*R;               // radius of this ring
+    const circ = 2*Math.PI*bandR;
+    const tileH = (Math.PI*R)/BANDS * 0.82;      // tile height w/ gap
+    const n = Math.max(6, Math.round(circ/(tileH*1.1))); // tiles in ring
+    const tileW = (circ/n) * 0.82;
+
+    for(let i=0;i<n;i++){
+      const lon = (2*Math.PI*i/n);
+      const t = document.createElement('div');
+      t.className='tile';
+
+      /* tile normal in 3D (before ball rotation) */
+      const nx = Math.cos(lat)*Math.sin(lon);
+      const ny = Math.sin(lat);
+      const nz = Math.cos(lat)*Math.cos(lon);
+
+      /* lambert-ish shade vs light dir */
+      let shade = nx*light.x + ny*light.y + nz*light.z;
+      shade = Math.max(0.18, Math.min(1, 0.55 + shade*0.6));
+
+      t.style.width = tileW+'px';
+      t.style.height = tileH+'px';
+      t.style.marginLeft = (-tileW/2)+'px';
+      t.style.marginTop = (-tileH/2)+'px';
+      t.style.transform =
+        `rotateY(${lon}rad) rotateX(${-lat}rad) translateZ(${R*0.97}px)`;
+      t.style.filter = `brightness(${shade.toFixed(2)})`;
+
+      /* ~7% of tiles are glinters that flare as they pass the light */
+      if(Math.random()<0.07){
+        t.classList.add('glint');
+        t.style.setProperty('--gd', (-(lon/(2*Math.PI))*period).toFixed(2)+'s');
+      }
+      frag.appendChild(t);
+      tileCount++;
+    }
+  }
+  ball.appendChild(frag);
+  ball.style.setProperty('--period', period+'s');
+
+  /* ---------- thrown light flecks ---------- */
+  const thrown = document.getElementById('thrown');
+  const F = 46;
+  for(let i=0;i<F;i++){
+    const f = document.createElement('div');
+    f.className='fleck';
+    f.style.top = (6+Math.random()*82)+'vh';
+    f.style.setProperty('--d', (-Math.random()*period)+'s');
+    f.style.setProperty('--period', period+'s');
+    f.style.setProperty('--o', (0.25+Math.random()*0.45).toFixed(2));
+    const s = 0.7+Math.random()*0.9;
+    f.style.width=(14*s)+'px';
+    f.style.height=(11*s)+'px';
+    /* occasional colored fleck from tinted light */
+    const roll=Math.random();
+    if(roll<0.14) f.style.background='var(--pink)';
+    else if(roll<0.26) f.style.background='var(--blue)';
+    else if(roll<0.38) f.style.background='var(--amber)';
+    thrown.appendChild(f);
+  }
+
+  /* ---------- diamond dust ---------- */
+  const dust = document.getElementById('dust');
+  for(let i=0;i<26;i++){
+    const m=document.createElement('div');
+    m.className='mote';
+    m.style.left=(Math.random()*100)+'vw';
+    m.style.setProperty('--ft',(10+Math.random()*10)+'s');
+    m.style.setProperty('--fd',(-Math.random()*16)+'s');
+    dust.appendChild(m);
+  }
+})();
+</script>
+</body>
+</html>
