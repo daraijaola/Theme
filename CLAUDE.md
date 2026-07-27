@@ -55,10 +55,16 @@ Dataset shape: `theme → (generic ❌, distinctive ✅)` pairs.
   guardrails, reference anchors. This is the research-phase output format.
 - **`data/vocab/`** — critique language. Terms paired with the sentence that
   uses them, so the model names a fault instead of gesturing at it.
+- **`data/protocol/`** — how the Director agent runs its loop: environment
+  detection, kill-tests, build order, what it must verify itself.
+- **`data/prompts/`** — reusable prompt templates.
 - **`experiments/`** — preference chains: bad → good outputs on the same brief.
   The ❌ files are dataset material, not clutter. **Never delete, rename, or
   tidy them** — the product is trained on the gap between the pair. See
   `experiments/README.md` for what each file is and the lesson it encodes.
+  **`experiments/liquid-glass/` is the strongest evidence chain in the repo** —
+  same model throughout, one-shot vs guided, with the gap counted directly
+  from the source files, plus a self-critique pair (`04 → 05`).
 
 ## Team
 
